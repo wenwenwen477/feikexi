@@ -264,11 +264,7 @@
         const defaultReply = '输入 “帮助” 以获得指引。';
 
         // ---------- 🥚 连续彩蛋阶段系统 (同一个关键词，连续触发多个彩蛋) ----------
-        // 每个关键词维护一个计数，以及一个阶段数组。
-        // 每个阶段包含 { at: 触发次数, reply: 彩蛋回复 }
-        // 当计数达到某个阶段的 at 值时，触发该彩蛋，且每个阶段只触发一次。
         const easterEggStages = {
-            // 示例：输入"你好" 第3次触发彩蛋1，第4次触发彩蛋2，第5次触发彩蛋3
             '你好': {
                 count: 0,
                 stages: [
@@ -276,10 +272,8 @@
                     { at: 4, reply: '回应的不是我。' },
                     { at: 5, reply: '在等您，我，或者……' }
                 ],
-                // 用于记录已触发的阶段 (存储 at 值)
                 triggered: new Set()
             },
-            // 示例：输入"为什么" 第3次触发一个，第6次触发另一个
             '为什么': {
                 count: 0,
                 stages: [
@@ -288,7 +282,6 @@
                 ],
                 triggered: new Set()
             },
-            // 示例：输入"我" 第2次触发
             '我': {
                 count: 0,
                 stages: [
@@ -297,16 +290,6 @@
                 ],
                 triggered: new Set()
             }
-            // 你可以在这里随意添加更多关键词及其阶段
-            // 例如：
-            // '秘密': {
-            //     count: 0,
-            //     stages: [
-            //         { at: 2, reply: '🥚 您对秘密很执着……' },
-            //         { at: 5, reply: '🥚 好吧，秘密就是对话本身。' }
-            //     ],
-            //     triggered: new Set()
-            // }
         };
 
         // ---------- 处理输入 ----------
@@ -321,9 +304,9 @@
             let matchedKey = null;
             let normalReply = null;
 
-            // 1. 先尝试匹配普通问答
+            // ✅ 修改为精确匹配：用户输入必须完全等于某个关键词
             for (const [key, value] of Object.entries(responses)) {
-                if (lowerText.includes(key.toLowerCase())) {
+                if (lowerText === key.toLowerCase()) {
                     matchedKey = key;
                     normalReply = value;
                     break;
@@ -345,26 +328,18 @@
 
             if (easterEggStages.hasOwnProperty(matchedKeyLower)) {
                 const egg = easterEggStages[matchedKeyLower];
-                // 计数+1
                 egg.count += 1;
-
-                // 按 at 值排序阶段（从小到大）
                 const sortedStages = [...egg.stages].sort((a, b) => a.at - b.at);
-
-                // 遍历所有阶段，检查是否有未触发且计数达到 at 值的阶段
                 for (const stage of sortedStages) {
                     if (egg.count >= stage.at && !egg.triggered.has(stage.at)) {
-                        // 触发彩蛋
                         eggReply = stage.reply;
-                        egg.triggered.add(stage.at); // 标记为已触发
+                        egg.triggered.add(stage.at);
                         triggeredThisTime = true;
-                        break; // 一次输入只触发一个彩蛋（按最低未触发的阶段）
+                        break;
                     }
                 }
             }
 
-            // 3. 输出回复
-            // 优先显示彩蛋回复，其次显示普通回复
             let finalReply = null;
             if (triggeredThisTime && eggReply) {
                 finalReply = eggReply;
@@ -375,7 +350,6 @@
             }
 
             replyBox.innerHTML = `您的提问是：${rawText}\n\n我的回答是：${finalReply}`;
-
             userInput.value = '';
             userInput.focus();
         }
