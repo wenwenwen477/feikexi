@@ -567,6 +567,9 @@
             '我': '您。',
             '你': '您的所见。',
             '闹麻了': '我没有和您闹呀……',
+			'何意味': '您或许困惑，但是不必操之过急。',
+			'这什么垃圾游戏': '您的看法会被重视。',
+			'垃圾游戏': '您的看法会被重视。',
             '我好': '我也很好，很高兴再次见到您。',
             '你是谁': '我是回答。',
             '我喜欢你': '能自如表达善意的您……同样值得被喜欢。',
@@ -592,14 +595,9 @@
             '数字是什么？': '提问是：数字是多少',
             '数字是什么': '提问是：数字是多少',
 
-            // --- 🧪 测试关键词 ---
-            '测试': '值得注意的是：这是一个测试思维泡沫的句子。',
-            '测试2': '值得注意的是：您正在测试第二句思维泡沫。',
-            '石头': '值得注意的是：石头底下可能有东西。',
-
             // --- 帮助 ---
             'help': 'Key Words',
-            '帮助': '回想我们交流里的关键词',
+            '帮助': '回想我们交流里的关键词，还有……尽量不要携带标点符号，除非特殊情况。',
         };
 
         const defaultReply = '输入 “帮助” 以获得指引。';
@@ -780,10 +778,15 @@
                 { ask: '这里', reply: '这里就是您的所在。', next: '所在' },
                 { ask: '所在', reply: '别处。', next: null }
             ],
+			'密码是什么': [
+			    { ask: '你密码是什么', reply: '密码是：数字。', next: '数字' },
+			    { ask: '数字', reply: '数字是答案的所在。', next: '所在' },
+			    { ask: '所在', reply: '提问是：数字是多少。', next: null }
+			],
             '我该怎么见你': [
                 { ask: '我该怎么见你', reply: '您真的想见？', next: '真的' },
                 { ask: '真的', reply: '再为我说一遍吧', next: '真的' },
-                { ask: '真的', reply: '2026824948', next: null }
+                { ask: '真的', reply: '值得注意的是：2026824948', next: null }
             ],
         };
 
@@ -792,18 +795,65 @@
             dialogueState[chainName] = 0;
         }
 
+        // ---------- 🛠️ 修复：支持重复已完成的步骤 ----------
         function checkDialogue(input) {
             const lower = input.toLowerCase();
             for (const chainName in dialogueChains) {
                 const steps = dialogueChains[chainName];
-                const currentIdx = dialogueState[chainName];
-                if (currentIdx >= steps.length) continue;
-                const step = steps[currentIdx];
-                if (lower === step.ask.toLowerCase()) {
-                    dialogueState[chainName] = currentIdx + 1;
-                    saveGame();
-                    return step.reply;
+                let currentIdx = dialogueState[chainName];
+
+                // 如果链已完成，重置到第一步
+                if (currentIdx >= steps.length) {
+                    dialogueState[chainName] = 0;
+                    currentIdx = 0;
                 }
+
+                // 找出所有匹配的步骤索引
+                const matchedIndices = [];
+                for (let i = 0; i < steps.length; i++) {
+                    if (lower === steps[i].ask.toLowerCase()) {
+                        matchedIndices.push(i);
+                    }
+                }
+
+                if (matchedIndices.length === 0) continue;
+
+                // 选择索引 ≤ currentIdx 且最大的那个（优先已完成或当前步骤）
+                let selectedIdx = -1;
+                for (const idx of matchedIndices) {
+                    if (idx <= currentIdx && idx > selectedIdx) {
+                        selectedIdx = idx;
+                    }
+                }
+                // 如果没有找到 ≤ currentIdx 的，但存在 > currentIdx 的（理论上不会发生）
+                if (selectedIdx === -1 && matchedIndices.length > 0) {
+                    // 取最小的未来步骤（即下一步）
+                    const future = matchedIndices.filter(i => i > currentIdx);
+                    if (future.length > 0) {
+                        selectedIdx = Math.min(...future);
+                    } else {
+                        // 安全兜底
+                        selectedIdx = matchedIndices[0];
+                    }
+                }
+
+                if (selectedIdx === -1) continue;
+
+                const step = steps[selectedIdx];
+                const reply = step.reply;
+
+                // 判断是否推进
+                if (selectedIdx === currentIdx) {
+                    // 当前步骤 → 推进
+                    dialogueState[chainName] = currentIdx + 1;
+                } else {
+                    // 已完成步骤 → 只回复，不推进
+                    // (selectedIdx < currentIdx)
+                    // 不做任何状态修改
+                }
+
+                saveGame();
+                return reply;
             }
             return null;
         }
@@ -1269,7 +1319,7 @@
             bgm.pause();
         });
 
-        console.log('❓ 粗糙解谜页已加载。笔记消失改为缩小动画，效果明显。');
+        console.log('❓ 粗糙解谜页已加载。对话链支持重复已完成步骤，任意步骤均可恢复。');
     </script>
 </body>
 </html>
