@@ -149,10 +149,12 @@
             '钥匙|key': '这里没有钥匙。',
             '分散式凯撒': '它的加密有以下三项：方向，数字，原码。',
             '随机数字': '如果您希望加密某些英文字符串，它们很有用。',
+			'思维|流淌思维': '值得注意的是：如果您触发了特定的互动……那么是的，祂们，我们就会出现。',
             '书房|书斋': '这里没有书房，但……改天可以有。',
             '秘密|secret': '秘密不在我的答案里，而在我与您相处的每个日夜里。',
             '答案|answer': '答案在此处，您可以掘地三尺。',
-            'help|帮助': '回想我们交流里的关键词。',
+			'词表|Words': '普通回应词表如下：你好、我、你、什么、我很好、你是谁、故事碎片-D1、你在哪里、钥匙、思维、书房、秘密、答案……（其余的部分，您会在某处找到的。）',
+            'help|帮助': '回想我们交流里的关键词。如果您实在郁闷，请提问“词表”或“Words”。',
         };
         const flatResponses = {};
         for (const [key, value] of Object.entries(responses)) {
@@ -163,10 +165,27 @@
 
         // ---------- 彩蛋阶段系统 ----------
         const easterEggStages = {
-            '你好|hi|hello': { count: 0, stages: [{ at: 3, reply: '我感到温暖。' }, { at: 4, reply: '回应的不是我。' }, { at: 5, reply: '在等您，我，或者……' }], triggered: new Set() },
-            '为什么|why': { count: 0, stages: [{ at: 3, reply: '因为您在此处。' }, { at: 6, reply: '求知若渴。' }], triggered: new Set() },
-            '你在哪|你在哪里|where': { count: 0, stages: [{ at: 2, reply: '我不会离开的。' }, { at: 4, reply: '可能是别处。' }, { at: 6, reply: '值得注意的是：您该怎么见我？' }], triggered: new Set() },
-            '我|me': { count: 0, stages: [{ at: 2, reply: '您在……寻找您自己？' }, { at: 4, reply: '自言自语。' }], triggered: new Set() }
+            '你好|hi|hello': 
+			{ count: 0, stages: [{ at: 3, reply: '我感到温暖。' }, 
+			{ at: 4, reply: '回应的不是我。' }, 
+			{ at: 5, reply: '在等您，我，或者……' }], 
+			triggered: new Set() },
+			
+            '为什么|why': 
+			{ count: 0, stages: [{ at: 3, reply: '因为您在此处。' },
+			{ at: 6, reply: '求知若渴。' }],
+			 triggered: new Set() },
+			 
+            '你在哪|你在哪里|where': 
+			{ count: 0, stages: [{ at: 2, reply: '我不会离开的。' },
+			{ at: 4, reply: '可能是别处。' }, 
+			{ at: 6, reply: '值得注意的是：您该怎么见我？' }],
+			 triggered: new Set() },
+			 
+            '我|me': 
+			{ count: 0, stages: [{ at: 2, reply: '您在……寻找您自己？' }, 
+			{ at: 4, reply: '自言自语。' }], 
+			triggered: new Set() }
         };
         const eggAliasMap = {};
         for (const [key, _] of Object.entries(easterEggStages)) {
@@ -176,7 +195,7 @@
 
         // ---------- 弹窗配置 ----------
         const popupConfig = {
-            '解码器|decoder': {
+            '解码器': {
                 text: '您知道怎么做。',
                 buttonText: '前往查看',
                 url: 'newweb/解码器.html',
@@ -418,7 +437,7 @@
             '密码是什么|密码是啥|whatispassword': [
                 { ask: '密码是什么|whatispassword', reply: '密码是：数字。', next: '数字|number' },
                 { ask: '数字|number', reply: '数字是答案的所在。', next: '所在|place' },
-                { ask: '所在|place', reply: '提问是：数字是多少。', next: null }
+                { ask: '所在|place', reply: '提问是：凯撒掩码-K0', next: null }
             ],
             '我该怎么见你|怎么见你|howtoseeyou': [
                 { ask: '我该怎么见你|howtoseeyou', reply: '您真的想见？', next: '真的|really' },
