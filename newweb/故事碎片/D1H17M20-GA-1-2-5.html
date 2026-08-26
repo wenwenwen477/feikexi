@@ -1,0 +1,1125 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>D1H17M20-GA-1-2-5</title>
+    <style>
+        /* ---------- 基础重置 ---------- */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0a0a0a;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 20px;
+        }
+        .rough-card {
+            max-width: 960px;
+            width: 100%;
+            padding: 28px 24px 32px;
+            background: #111;
+            border: 2px solid #2a2a2a;
+            box-shadow: 0 8px 0 #1a1a1a, 0 12px 40px rgba(0, 0, 0, 0.8);
+            position: relative;
+        }
+        .rough-card::after {
+            content: '';
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            right: -4px;
+            bottom: -4px;
+            border: 1px dashed #2a2a2a;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+
+        .title {
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 400;
+            letter-spacing: 2px;
+            color: #c0b8a8;
+            text-shadow: 0 0 6px rgba(200, 180, 150, 0.1);
+            border-bottom: 1px solid #2a2a2a;
+            padding-bottom: 10px;
+            margin-bottom: 4px;
+        }
+        .title span {
+            margin-right: 6px;
+            font-size: 1.6rem;
+        }
+        .sub-hint {
+            text-align: center;
+            color: #5a5a5a;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed #222;
+            margin-bottom: 16px;
+        }
+        .sub-hint .progress {
+            color: #7a7a6a;
+        }
+
+        /* ---------- 主舞台 ---------- */
+        .stage {
+            display: flex;
+            gap: 16px;
+            min-height: 460px;
+            align-items: stretch;
+        }
+
+        /* ---- 左右角色栏 ---- */
+        .role-column {
+            flex: 0 0 150px;
+            background: #0d0d0d;
+            border: 2px solid #222;
+            padding: 10px 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.7);
+            position: relative;
+            overflow: hidden;
+            min-height: 200px;
+        }
+        .role-column.left-column {
+            border-right: 3px solid #2a1f1a;
+        }
+        .role-column.right-column {
+            border-left: 3px solid #1a222a;
+        }
+
+        .avatar-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-height: 200px;
+        }
+
+        .role-item {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%) translateY(0px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.6s cubic-bezier(0.34, 1.2, 0.64, 1),
+                opacity 0.4s ease;
+            will-change: transform;
+            padding: 4px 0;
+            width: auto;
+        }
+        .role-item .avatar-wrap {
+            width: 92px;          /* 从 82px 增大到 92px */
+            height: 92px;
+            border: 3px solid #333;
+            border-radius: 2px;
+            overflow: hidden;
+            background: #0a0a0a;
+            transition: border-color 0.4s, box-shadow 0.4s, transform 0.4s,
+                opacity 0.4s, filter 0.4s;
+            box-shadow: 0 0 12px rgba(0, 0, 0, 0.6);
+            flex-shrink: 0;
+            position: relative;
+            opacity: 0.5;
+            filter: grayscale(0.6);
+        }
+        .role-item .avatar-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            image-rendering: pixelated;
+        }
+        .role-item .avatar-wrap .placeholder-avatar {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #5a4a3a;
+            font-size: 1.5rem;
+            background: #2a1a1a;
+        }
+        .role-item .role-name {
+            font-size: 0.75rem;    /* 从 0.65rem 增大 */
+            letter-spacing: 1px;
+            margin-top: 4px;
+            color: #6a6a5a;
+            transition: color 0.4s;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+
+        /* 发言者高亮，恢复全彩 */
+        .role-item.active .avatar-wrap {
+            border-color: #8a7a6a;
+            box-shadow: 0 0 28px rgba(120, 100, 80, 0.3);
+            transform: scale(1.10);
+            opacity: 1;
+            filter: grayscale(0);
+        }
+        .role-item.active .role-name {
+            color: #d0c0a8;
+        }
+
+        /* ---- 中间对话列表 ---- */
+        .dialogue-wrap {
+            flex: 1;
+            background: #0a0a0a;
+            border: 2px solid #222;
+            border-bottom: none;
+            padding: 14px 16px;
+            min-height: 380px;
+            max-height: 480px;
+            overflow-y: auto;
+            box-shadow: inset 0 2px 12px rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scroll-behavior: smooth;
+            position: relative;
+        }
+        .dialogue-wrap::-webkit-scrollbar {
+            width: 4px;
+        }
+        .dialogue-wrap::-webkit-scrollbar-track {
+            background: #0a0a0a;
+        }
+        .dialogue-wrap::-webkit-scrollbar-thumb {
+            background: #333;
+        }
+        .dialogue-empty {
+            color: #3a3a3a;
+            font-style: italic;
+            font-size: 0.9rem;
+            text-align: center;
+            margin: auto;
+            letter-spacing: 1px;
+        }
+
+        /* ---- 单条消息 ---- */
+        .msg-item {
+            display: flex;
+            flex-direction: column;
+            max-width: 82%;
+            padding: 10px 16px;
+            border: 2px solid #2a2a2a;
+            background: #111;
+            box-shadow: 0 2px 0 #1a1a1a;
+            opacity: 0;
+            transform: scale(0.7) rotate(var(--rot, 0deg));
+            transform-origin: var(--origin, center);
+            animation: msgPopIn 0.45s cubic-bezier(0.22, 0.9, 0.36, 1.1) forwards;
+            word-break: break-word;
+            line-height: 1.6;
+            font-size: 0.95rem;
+            color: #b8b0a0;
+            border-left-width: 4px;
+            border-right-width: 4px;
+        }
+        .msg-item .msg-speaker {
+            font-size: 0.8rem;      /* 从 0.7rem 增大 */
+            letter-spacing: 1px;
+            font-weight: 600;
+            margin-bottom: 2px;
+            opacity: 0.8;
+        }
+        .msg-item .msg-text {
+            font-size: 1.1rem;      /* 从 0.95rem 增大 */
+            line-height: 1.6;
+        }
+
+        .msg-item.from-left {
+            align-self: flex-start;
+            border-left-color: #b05a3a;
+            --origin: left center;
+            --rot: -3deg;
+            animation-name: msgPopInLeft;
+        }
+        .msg-item.from-left .msg-speaker {
+            text-align: left;
+        }
+
+        .msg-item.from-right {
+            align-self: flex-end;
+            border-right-color: #3a7a9a;
+            --origin: right center;
+            --rot: 3deg;
+            animation-name: msgPopInRight;
+        }
+        .msg-item.from-right .msg-speaker {
+            text-align: right;
+        }
+
+        @keyframes msgPopInLeft {
+            0% {
+                opacity: 0;
+                transform: translateX(-40px) scale(0.7) rotate(-3deg);
+            }
+            60% {
+                opacity: 1;
+                transform: translateX(8px) scale(1.02) rotate(1deg);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0) scale(1) rotate(0deg);
+            }
+        }
+        @keyframes msgPopInRight {
+            0% {
+                opacity: 0;
+                transform: translateX(40px) scale(0.7) rotate(3deg);
+            }
+            60% {
+                opacity: 1;
+                transform: translateX(-8px) scale(1.02) rotate(-1deg);
+            }
+            100% {
+                opacity: 1;
+                transform: translateX(0) scale(1) rotate(0deg);
+            }
+        }
+
+        /* ---------- 底部控制 ---------- */
+        .controls-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 18px;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px dashed #222;
+            flex-wrap: wrap;
+        }
+        .controls-row .btn-continue {
+            background: #1a1a1a;
+            border: 2px solid #444;
+            color: #b0a898;
+            padding: 10px 40px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.15s;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 0 #0a0a0a;
+        }
+        .controls-row .btn-continue:hover {
+            background: #222;
+            border-color: #666;
+            color: #d0c8b8;
+        }
+        .controls-row .btn-continue:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #0a0a0a;
+        }
+        .controls-row .btn-continue:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 4px 0 #0a0a0a;
+        }
+
+        /* ---- 新增「回顾全部」按钮样式 ---- */
+        .controls-row .btn-skip {
+            background: #1a1a1a;
+            border: 2px solid #3a4a3a;
+            color: #8aaa8a;
+            padding: 10px 24px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: 0.15s;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 0 #0a0a0a;
+        }
+        .controls-row .btn-skip:hover {
+            background: #1e261e;
+            border-color: #5a7a5a;
+            color: #aacaaa;
+        }
+        .controls-row .btn-skip:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #0a0a0a;
+        }
+        .controls-row .btn-skip:disabled {
+            opacity: 0.35;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 4px 0 #0a0a0a;
+        }
+
+        .controls-row .btn-reset {
+            background: #1a1a1a;
+            border: 1px solid #333;
+            color: #5a5a5a;
+            padding: 6px 20px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: 0.15s;
+            font-family: 'Courier New', monospace;
+        }
+        .controls-row .btn-reset:hover {
+            background: #221a1a;
+            border-color: #5a3a3a;
+            color: #8a6a6a;
+        }
+        .controls-row .btn-reset:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+        .controls-row .step-indicator {
+            color: #5a5a5a;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+            font-family: 'Courier New', monospace;
+            min-width: 80px;
+            text-align: center;
+        }
+        .controls-row .step-indicator em {
+            color: #8a7a6a;
+            font-style: normal;
+        }
+
+        /* ---------- 响应式 ---------- */
+        @media (max-width: 720px) {
+            .rough-card {
+                padding: 16px 12px 20px;
+            }
+            .title {
+                font-size: 1.4rem;
+            }
+            .stage {
+                flex-direction: column;
+                gap: 12px;
+                min-height: auto;
+            }
+            .role-column {
+                flex: 0 0 auto;
+                flex-direction: row;
+                justify-content: center;
+                padding: 8px 4px;
+                min-height: 90px;
+                border: 2px solid #222;
+            }
+            .role-column.left-column {
+                border-right: 2px solid #222;
+                border-left: 4px solid #b05a3a;
+            }
+            .role-column.right-column {
+                border-left: 2px solid #222;
+                border-right: 4px solid #3a7a9a;
+            }
+            .avatar-container {
+                display: flex;
+                flex-direction: row;
+                flex-wrap: wrap;
+                justify-content: center;
+                gap: 6px;
+                padding: 2px 0;
+                min-height: unset;
+                height: auto;
+            }
+            .role-item {
+                position: static !important;
+                transform: none !important;
+                padding: 2px 4px;
+                flex-shrink: 0;
+                transition: none;
+                width: auto;
+            }
+            .role-item .avatar-wrap {
+                width: 48px;
+                height: 48px;
+                opacity: 0.5;
+                filter: grayscale(0.6);
+            }
+            .role-item.active .avatar-wrap {
+                opacity: 1;
+                filter: grayscale(0);
+            }
+            .role-item .role-name {
+                font-size: 0.5rem;
+                margin-top: 2px;
+            }
+            .dialogue-wrap {
+                max-height: 320px;
+                min-height: 180px;
+                padding: 10px 12px;
+                border-bottom: none;
+            }
+            .msg-item {
+                max-width: 92%;
+                font-size: 0.85rem;
+                padding: 8px 12px;
+            }
+            .controls-row {
+                gap: 10px;
+            }
+            .controls-row .btn-continue {
+                padding: 8px 24px;
+                font-size: 0.9rem;
+            }
+            .controls-row .btn-skip {
+                padding: 8px 16px;
+                font-size: 0.8rem;
+            }
+            .controls-row .step-indicator {
+                font-size: 0.7rem;
+                min-width: 60px;
+            }
+        }
+        @media (max-width: 460px) {
+            .role-item .avatar-wrap {
+                width: 40px;
+                height: 40px;
+                opacity: 0.5;
+                filter: grayscale(0.6);
+            }
+            .role-item.active .avatar-wrap {
+                opacity: 1;
+                filter: grayscale(0);
+            }
+            .role-item .role-name {
+                font-size: 0.45rem;
+            }
+            .dialogue-wrap {
+                max-height: 240px;
+                min-height: 140px;
+                padding: 6px 8px;
+                gap: 8px;
+                border-bottom: none;
+            }
+            .msg-item {
+                font-size: 0.75rem;
+                padding: 6px 10px;
+                max-width: 96%;
+            }
+            .msg-item .msg-speaker {
+                font-size: 0.6rem;
+            }
+            .controls-row .btn-continue {
+                padding: 6px 16px;
+                font-size: 0.8rem;
+            }
+            .controls-row .btn-skip {
+                padding: 6px 12px;
+                font-size: 0.7rem;
+            }
+            .controls-row .btn-reset {
+                padding: 4px 14px;
+                font-size: 0.7rem;
+            }
+            .title {
+                font-size: 1.2rem;
+            }
+            .sub-hint {
+                font-size: 0.65rem;
+            }
+            .role-column {
+                min-height: 70px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="rough-card">
+        <div class="title"><span>📜</span> D1H17M20-GA-1-2-5</div>
+        <div class="sub-hint">
+            <span class="progress" id="progressHint">点击「继续」推进 · 共 <em id="totalCount">0</em> 句</span>
+        </div>
+
+        <div class="stage">
+            <!-- 左栏 -->
+            <div class="role-column left-column" id="leftColumn">
+                <div class="avatar-container" id="leftContainer"></div>
+            </div>
+
+            <!-- 对话列表 -->
+            <div class="dialogue-wrap" id="dialogueWrap">
+                <div class="dialogue-empty" id="dialogueEmpty">💬 点击「继续」开始阅读……</div>
+            </div>
+
+            <!-- 右栏 -->
+            <div class="role-column right-column" id="rightColumn">
+                <div class="avatar-container" id="rightContainer"></div>
+            </div>
+        </div>
+
+        <div class="controls-row">
+            <button class="btn-continue" id="btnContinue">▶ 继续</button>
+            <!-- 新增回顾全部按钮 -->
+            <button class="btn-skip" id="btnSkipAll">⏩ 回顾全部</button>
+            <span class="step-indicator" id="stepIndicator"><em>0</em> / <span id="totalDisplay">0</span></span>
+            <button class="btn-reset" id="btnReset">⟲ 重来</button>
+        </div>
+    </div>
+
+    <script>
+        // ================================================================
+        //  📁  图片基础路径
+        // ================================================================
+        const IMAGE_BASE = '../../pic/character/';
+        function getImagePath(filePath) {
+            return IMAGE_BASE + filePath;
+        }
+
+        // ================================================================
+        //  🗂️  角色配置（包含固定序号 id）
+        //  序号需与主页面 DEFAULT_CHARACTERS 中的 id 保持一致
+        // ================================================================
+        const CHARACTERS = {
+            '识人鱼': {
+                id: 1,
+                name: '识人鱼',
+                defaultAvatar: '识人鱼/识人鱼.png',
+                color: '#3a7a9a',
+                side: 'left',
+                order: 0,
+            },
+            '旁观者': {
+                id: 0,
+                name: '旁观者',
+                defaultAvatar: '旁观者/旁观者.png',
+                color: '#6a8a4a',
+                side: 'left',
+                order: 1,
+            },
+            '贵妇人': {
+                id: 5,
+                name: '贵妇人',
+                defaultAvatar: '贵妇人/贵妇人.png',
+                color: '#A52A2A',
+                side: 'right',
+                order: 0,
+            },
+            '根系管家': {
+                id: 2,
+                name: '根系管家',
+                defaultAvatar: '根系管家/根系管家.png',
+                color: '#8B7355',
+                side: 'right',
+                order: 1,
+            }
+        };
+
+        // ================================================================
+        //  🔄 从 localStorage 读取改写后的名字（兼容版本，支持带序号）
+        // ================================================================
+        function loadCustomNames() {
+            const saved = localStorage.getItem('custom_character_names');
+            if (saved) {
+                try {
+                    const names = JSON.parse(saved);
+                    const defaultOrder = ['旁观者','识人鱼', '根系管家', '说谎者', '影中人','贵妇人'];
+                    const keys = Object.keys(CHARACTERS);
+                    keys.forEach(key => {
+                        const idx = defaultOrder.indexOf(key);
+                        if (idx !== -1 && names[idx] && names[idx].trim()) {
+                            CHARACTERS[key].name = names[idx].trim();
+                        }
+                    });
+                } catch (e) {
+                    console.warn('读取改写名字失败:', e);
+                }
+            }
+        }
+        loadCustomNames();
+
+        // ---------- 显示名字辅助函数（带序号） ----------
+        function getDisplayName(char) {
+            return `[${char.id}]${char.name}`;
+        }
+
+        // ================================================================
+        //  📖  对话数据
+        // ================================================================
+        const DIALOGUE_DATA = [
+            { speaker: '旁观者', text: '开车的是一位女性，看起来二十来岁的样子，很年轻，还做了发型。' },
+            { speaker: '旁观者', text: '只是她不像是个年轻人——最起码从气质上来说更像是个贵妇人。' },
+            { speaker: '旁观者', text: '她停车的时候看了他一眼，除此之外再没有什么别的行动。' },
+            { speaker: '识人鱼', text: '（她是这里的太太？）' },
+            { speaker: '旁观者', text: '“啵——”红车车门打开关闭，她踏在雪地上，一步又一步。' },
+            { speaker: '旁观者', text: '“咳啦啦啦……”铁门只为她打开。' },
+            { speaker: '旁观者', text: '女管家和她交流了眼神，接着，女管家低了低头，像是确认了什么一样。' },
+            { speaker: '旁观者', text: '她转而看了看他，问女管家：' },
+            { speaker: '贵妇人', text: '“他是客人？”' },
+            { speaker: '根系管家', text: '“只是一个迷路的毛头小子而已，我已经警告过他快点离开了！……”' },
+            { speaker: '根系管家', text: '“可是他笨到一直打不着火！……”' },
+            { speaker: '旁观者', text: '像是突然意识到什么关键信息，贵妇人又看一看他，看一看他的车。' },
+            { speaker: '旁观者', text: '然后她把自己的包包递给女管家，拉一拉自己身上的羽绒，慢慢向他走来。' },
+            { speaker: '识人鱼', text: '（避免不了直接接触，但至少是个机会。）' },
+            { speaker: '旁观者', text: '她靠近驾驶座时，他摇下了车窗。' },
+            { speaker: '贵妇人', text: '“要不要进去坐坐？”' },
+            { speaker: '识人鱼', text: '“嗯？”' },
+            { speaker: '旁观者', text: '他不解。' },
+            { speaker: '识人鱼', text: '（没有什么多余的时间可以留给我思考。）' },
+            { speaker: '识人鱼', text: '（我只能隐约察觉这不是邀请。）' },
+            { speaker: '识人鱼', text: '“可是庄园不是不对外开放吗？”' },
+            { speaker: '旁观者', text: '她微微笑了笑，似乎觉得他好笑，似乎也对他很满意。' },
+            { speaker: '贵妇人', text: '“你知道这里是庄园？”' },
+            { speaker: '识人鱼', text: '“那位告诉我的。”' },
+            { speaker: '旁观者', text: '他指了指女管家。' },
+            { speaker: '旁观者', text: '贵妇人也就看了过去。' },
+            { speaker: '旁观者', text: '这次换女管家稍稍有些惊讶了。' },
+            { speaker: '识人鱼', text: '“她真的很负责任啊……这种天气里还站在这里提醒我……”' },
+            { speaker: '旁观者', text: '“咔嚓——”' },
+            { speaker: '旁观者', text: '“轰——”' },
+            { speaker: '识人鱼', text: '（唯一不巧的是……我不小心把火打着了。）' },
+            { speaker: '识人鱼', text: '（这真的是太坏了。）' },
+            { speaker: '旁观者', text: '只不过她反而笑了。' },
+            { speaker: '贵妇人', text: '“防冻液都把驱动石冻上了，打着火也走不远……”' },
+            { speaker: '旁观者', text: '她慢慢拉了拉羽绒，直起身子慢慢回去了。' },
+            { speaker: '贵妇人', text: '“让他进来吧。”' },
+            { speaker: '旁观者', text: '她一边看着他微笑，一边对女管家说。' },
+            { speaker: '旁观者', text: '顺手接过女管家的黑伞。' },
+            { speaker: '旁观者', text: '女管家看看他，又低了低头，奉了命，转身去拉铁门了。' },
+            { speaker: '旁观者', text: '“咳啦啦啦——”' },
+            { speaker: '旁观者', text: '大敞着的铁门发出古老而又衰颓的呻吟，在这皑皑白雪的病榻上苟延残喘，终于在这无尽的风雪里挪动了身躯。' },
+            { speaker: '识人鱼', text: '（啊……可算是能够好好歇一歇了……）' },
+            { speaker: '旁观者', text: '贵妇人只是看着他，没有打算回到庄园内部的样子。' },
+            { speaker: '识人鱼', text: '（意思是她在等我停到她面前？）' },
+            { speaker: '识人鱼', text: '（虽然不明白原因，但是既然有求于人，也没有必要拒绝。）' },
+            { speaker: '旁观者', text: '他小心翼翼地把车开进门去，待到行至她的面前，他停下车，挂空挡，踩住刹车，摇下车窗。' },
+            { speaker: '旁观者', text: '她轻轻弯了腰，靠近车窗，微微抬了抬手腕，向他指一指她的那辆红车。' },
+            { speaker: '旁观者', text: '声音里含笑，听起来不像嘲讽，反而似乎对他满意，她说：' },
+            { speaker: '贵妇人', text: '“介意帮我也停一下车吗？——迷路的【彼得·潘】。”' },
+            { speaker: '识人鱼', text: '（盲目答应是很奇怪的。）' },
+            { speaker: '识人鱼', text: '“可是那辆车看起来很贵。”' },
+            { speaker: '旁观者', text: '她被逗笑了，发笑以后，直起身子，拍拍浮雪。' },
+            { speaker: '贵妇人', text: '“你看起来也不便宜。”' },
+            { speaker: '旁观者', text: '她最后抬眼看了他，笑一笑，就转身了。' },
+            { speaker: '贵妇人', text: '“钥匙没拔。”' },
+            { speaker: '旁观者', text: '她只是侧眼看了看他。' },
+            { speaker: '贵妇人', text: '“半个小时以后我会回来一趟。”' },
+            { speaker: '旁观者', text: '说完最后一句话，她头也不回地，撑开黑伞，在风雪里，慢慢向前，一步一步地踏着，离开了。' },
+            { speaker: '根系管家', text: '“快点进去吧。”' },
+            { speaker: '旁观者', text: '女管家抻抻手，示意他往某个方向开车。' },
+            { speaker: '根系管家', text: '“右拐，直走，到头就是车库。”' },
+            { speaker: '旁观者', text: '十一个字，也是铿锵有力。' },
+            { speaker: '识人鱼', text: '“麻烦问一下，车库是自动门吗？还是说我要自己开一下呢？”' },
+            { speaker: '识人鱼', text: '（一般来说也不会用到手动的吧。）' },
+            { speaker: '根系管家', text: '“不用你开，晚些我会去关的！……”' },
+            { speaker: '旁观者', text: '回应有点出乎他的预料。' },
+            { speaker: '旁观者', text: '女管家也感受到寒风，所以搓了搓手，哈一哈气。' },
+            { speaker: '识人鱼', text: '“哈哈，好的，谢谢您。”' },
+            { speaker: '旁观者', text: '他向她道谢，关上车窗，挂了档，启动车子开了进去。' },
+			{ speaker: '旁观者', text: '（故事暂时只写到这里，暂无别的档案。如若看见此句，您已完了所有的工。）' },
+			{ speaker: '旁观者', text: '（您可以继续探索其他答案，这里会有的，会有的。）' }
+        ];
+
+        // ================================================================
+        //  核心逻辑
+        // ================================================================
+
+        const leftContainer = document.getElementById('leftContainer');
+        const rightContainer = document.getElementById('rightContainer');
+        const dialogueWrap = document.getElementById('dialogueWrap');
+        const dialogueEmpty = document.getElementById('dialogueEmpty');
+        const btnContinue = document.getElementById('btnContinue');
+        const btnSkipAll = document.getElementById('btnSkipAll');
+        const btnReset = document.getElementById('btnReset');
+        const stepIndicator = document.getElementById('stepIndicator');
+        const totalDisplay = document.getElementById('totalDisplay');
+        const totalCount = document.getElementById('totalCount');
+        const progressHint = document.getElementById('progressHint');
+
+        let currentIndex = 0;
+        let isAnimating = false;
+        let currentSpeaker = null;
+
+        // 提取所有角色key
+        const involvedKeys = [];
+        const seen = new Set();
+        for (const item of DIALOGUE_DATA) {
+            if (!seen.has(item.speaker)) {
+                seen.add(item.speaker);
+                involvedKeys.push(item.speaker);
+            }
+        }
+        for (const key of involvedKeys) {
+            if (!CHARACTERS[key]) {
+                CHARACTERS[key] = {
+                    id: 99,
+                    name: key,
+                    defaultAvatar: `${key}/${key}.png`,
+                    color: '#888',
+                    side: 'left',
+                    order: 0,
+                };
+            }
+        }
+
+        const roleState = {};
+        const currentPortraits = {};
+        for (const key of involvedKeys) {
+            roleState[key] = {
+                side: CHARACTERS[key].side,
+                order: CHARACTERS[key].order
+            };
+            currentPortraits[key] = CHARACTERS[key].defaultAvatar;
+        }
+
+        totalDisplay.textContent = DIALOGUE_DATA.length;
+        totalCount.textContent = DIALOGUE_DATA.length;
+
+        // ---------- 创建角色 DOM ----------
+        const roleElements = {};
+        const containerMap = {
+            'left': leftContainer,
+            'right': rightContainer
+        };
+
+        function createRoleElement(key) {
+            const char = CHARACTERS[key];
+            const item = document.createElement('div');
+            item.className = 'role-item';
+            item.dataset.role = key;
+
+            const avatarWrap = document.createElement('div');
+            avatarWrap.className = 'avatar-wrap';
+            const img = document.createElement('img');
+            const portraitFile = currentPortraits[key] || char.defaultAvatar;
+            img.src = getImagePath(portraitFile);
+            img.alt = char.name;
+            img.onerror = function() {
+                this.style.display = 'none';
+                let placeholder = this.parentElement.querySelector('.placeholder-avatar');
+                if (!placeholder) {
+                    placeholder = document.createElement('span');
+                    placeholder.className = 'placeholder-avatar';
+                    placeholder.textContent = '?';
+                    this.parentElement.appendChild(placeholder);
+                }
+            };
+            avatarWrap.appendChild(img);
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'role-name';
+            nameSpan.textContent = getDisplayName(char);
+
+            item.appendChild(avatarWrap);
+            item.appendChild(nameSpan);
+            return item;
+        }
+
+        for (const key of involvedKeys) {
+            const el = createRoleElement(key);
+            const side = roleState[key].side;
+            containerMap[side].appendChild(el);
+            roleElements[key] = el;
+        }
+
+        // ---------- 渲染：发言者精确垂直居中 ----------
+        function renderRoles(speakerKey) {
+            const leftKeys = involvedKeys.filter(k => roleState[k].side === 'left');
+            const rightKeys = involvedKeys.filter(k => roleState[k].side === 'right');
+            leftKeys.sort((a, b) => roleState[a].order - roleState[b].order);
+            rightKeys.sort((a, b) => roleState[a].order - roleState[b].order);
+
+            layoutContainer(leftContainer, leftKeys, speakerKey);
+            layoutContainer(rightContainer, rightKeys, speakerKey);
+
+            for (const key of involvedKeys) {
+                const el = roleElements[key];
+                const isActive = (key === speakerKey);
+                el.classList.toggle('active', isActive);
+                const char = CHARACTERS[key];
+                const avatarWrap = el.querySelector('.avatar-wrap');
+                const nameSpan = el.querySelector('.role-name');
+                nameSpan.textContent = getDisplayName(char);
+                if (isActive) {
+                    avatarWrap.style.borderColor = char.color;
+                    avatarWrap.style.boxShadow = `0 0 30px ${char.color}44`;
+                    nameSpan.style.color = char.color;
+                } else {
+                    avatarWrap.style.borderColor = '#333';
+                    avatarWrap.style.boxShadow = '0 0 12px rgba(0,0,0,0.6)';
+                    nameSpan.style.color = '#6a6a5a';
+                }
+            }
+
+            currentSpeaker = speakerKey;
+        }
+
+        function layoutContainer(container, keys, speakerKey) {
+            if (keys.length === 0) return;
+
+            let containerHeight = container.clientHeight;
+            if (containerHeight <= 0) {
+                const parent = container.parentElement;
+                if (parent) containerHeight = parent.clientHeight;
+            }
+            if (containerHeight <= 0) containerHeight = 400;
+
+            // 头像高度 92px + 名字行高约 20px + 上下内边距 8px
+            const itemHeight = 92 + 20 + 8;   // 同步修改
+
+            const activeIndex = keys.indexOf(speakerKey);
+            const centerIndex = (activeIndex !== -1) ? activeIndex : 0;
+
+            const centerOffset = (containerHeight - itemHeight) / 2;
+
+            for (let i = 0; i < keys.length; i++) {
+                const key = keys[i];
+                const el = roleElements[key];
+                const targetParent = container;
+                if (el.parentNode !== targetParent) {
+                    targetParent.appendChild(el);
+                }
+                const offsetY = centerOffset + (i - centerIndex) * itemHeight;
+                el.style.transform = `translateX(-50%) translateY(${offsetY}px)`;
+            }
+        }
+
+        // ---------- 更新立绘 ----------
+        function updateRolePortrait(speakerKey, portraitFile) {
+            if (portraitFile) {
+                currentPortraits[speakerKey] = portraitFile;
+            } else {
+                currentPortraits[speakerKey] = CHARACTERS[speakerKey].defaultAvatar;
+            }
+            const el = roleElements[speakerKey];
+            const img = el.querySelector('img');
+            if (!img) return;
+            const placeholder = el.querySelector('.placeholder-avatar');
+            if (placeholder) placeholder.remove();
+            img.style.display = '';
+            img.src = getImagePath(currentPortraits[speakerKey]);
+        }
+
+        // ---------- 处理对话 ----------
+        function processDialogueItem(item) {
+            const { speaker, text, portrait, setSide, setOrder } = item;
+
+            if (setSide !== undefined) {
+                roleState[speaker].side = setSide;
+            }
+            if (setOrder !== undefined) {
+                roleState[speaker].order = setOrder;
+            }
+
+            if (portrait) {
+                currentPortraits[speaker] = portrait;
+            } else {
+                currentPortraits[speaker] = CHARACTERS[speaker].defaultAvatar;
+            }
+            const el = roleElements[speaker];
+            const img = el.querySelector('img');
+            if (img) {
+                const placeholder = el.querySelector('.placeholder-avatar');
+                if (placeholder) placeholder.remove();
+                img.style.display = '';
+                img.src = getImagePath(currentPortraits[speaker]);
+            }
+
+            renderRoles(speaker);
+
+            const char = CHARACTERS[speaker];
+            const side = roleState[speaker].side || 'left';
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `msg-item from-${side}`;
+            msgDiv.style.borderLeftColor = side === 'left' ? char.color : '#2a2a2a';
+            msgDiv.style.borderRightColor = side === 'right' ? char.color : '#2a2a2a';
+
+            const nameSpan = document.createElement('div');
+            nameSpan.className = 'msg-speaker';
+            nameSpan.textContent = getDisplayName(char);
+            nameSpan.style.color = char.color;
+
+            const textSpan = document.createElement('div');
+            textSpan.className = 'msg-text';
+            textSpan.textContent = text;
+
+            msgDiv.appendChild(nameSpan);
+            msgDiv.appendChild(textSpan);
+
+            if (dialogueEmpty && dialogueEmpty.parentNode === dialogueWrap) {
+                dialogueWrap.removeChild(dialogueEmpty);
+            }
+            dialogueWrap.appendChild(msgDiv);
+
+            dialogueWrap.scrollTop = dialogueWrap.scrollHeight;
+        }
+
+        // ---------- 推进（单步） ----------
+        function advanceDialogue() {
+            if (isAnimating) return;
+            if (currentIndex >= DIALOGUE_DATA.length) return;
+
+            isAnimating = true;
+            try {
+                const item = DIALOGUE_DATA[currentIndex];
+                processDialogueItem(item);
+                currentIndex++;
+
+                stepIndicator.innerHTML = `<em>${currentIndex}</em> / <span>${DIALOGUE_DATA.length}</span>`;
+
+                if (currentIndex >= DIALOGUE_DATA.length) {
+                    btnContinue.disabled = true;
+                    btnContinue.textContent = '✓ 已读完';
+                    btnSkipAll.disabled = true;
+                    btnSkipAll.textContent = '✓ 已回顾';
+                    progressHint.textContent = '📖 故事碎片已完整呈现。';
+                } else {
+                    btnContinue.disabled = false;
+                    btnContinue.textContent = '▶ 继续';
+                    progressHint.textContent = `点击继续 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+                }
+            } catch (e) {
+                console.error('对话推进出错:', e);
+            } finally {
+                setTimeout(() => {
+                    isAnimating = false;
+                }, 400);
+            }
+        }
+
+        // ================================================================
+        //  ⏩  新增：「回顾全部」—— 一键完成所有对话
+        // ================================================================
+        async function skipAllDialogue() {
+            if (isAnimating) return;
+            if (currentIndex >= DIALOGUE_DATA.length) return;
+
+            isAnimating = true;
+            btnContinue.disabled = true;
+            btnSkipAll.disabled = true;
+            btnReset.disabled = true;
+            btnSkipAll.textContent = '⏳ 回顾中…';
+
+            try {
+                while (currentIndex < DIALOGUE_DATA.length) {
+                    const item = DIALOGUE_DATA[currentIndex];
+                    processDialogueItem(item);
+                    currentIndex++;
+                    stepIndicator.innerHTML = `<em>${currentIndex}</em> / <span>${DIALOGUE_DATA.length}</span>`;
+                    progressHint.textContent = `⏩ 回顾中 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+                    await new Promise(resolve => setTimeout(resolve, 60));
+                }
+                btnContinue.disabled = true;
+                btnContinue.textContent = '✓ 已读完';
+                btnSkipAll.disabled = true;
+                btnSkipAll.textContent = '✓ 已回顾';
+                btnReset.disabled = false;
+                progressHint.textContent = '📖 故事碎片已完整呈现。';
+            } catch (e) {
+                console.error('回顾全部出错:', e);
+                btnReset.disabled = false;
+                btnSkipAll.disabled = false;
+                btnSkipAll.textContent = '⏩ 回顾全部';
+                if (currentIndex < DIALOGUE_DATA.length) {
+                    btnContinue.disabled = false;
+                    btnContinue.textContent = '▶ 继续';
+                }
+            } finally {
+                isAnimating = false;
+            }
+        }
+
+        // ---------- 重置 ----------
+        function resetDialogue() {
+            if (isAnimating) return;
+
+            for (const key of involvedKeys) {
+                roleState[key].side = CHARACTERS[key].side;
+                roleState[key].order = CHARACTERS[key].order;
+                currentPortraits[key] = CHARACTERS[key].defaultAvatar;
+                const el = roleElements[key];
+                const img = el.querySelector('img');
+                if (img) {
+                    const placeholder = el.querySelector('.placeholder-avatar');
+                    if (placeholder) placeholder.remove();
+                    img.style.display = '';
+                    img.src = getImagePath(currentPortraits[key]);
+                }
+            }
+            while (dialogueWrap.firstChild) {
+                dialogueWrap.removeChild(dialogueWrap.firstChild);
+            }
+            dialogueWrap.appendChild(dialogueEmpty);
+
+            currentIndex = 0;
+            btnContinue.disabled = false;
+            btnContinue.textContent = '▶ 继续';
+            btnSkipAll.disabled = false;
+            btnSkipAll.textContent = '⏩ 回顾全部';
+            btnReset.disabled = false;
+            stepIndicator.innerHTML = `<em>0</em> / <span>${DIALOGUE_DATA.length}</span>`;
+            progressHint.textContent = `点击下方按钮推进对话 · 共 ${DIALOGUE_DATA.length} 句`;
+
+            const firstSpeaker = DIALOGUE_DATA[0]?.speaker || involvedKeys[0];
+            renderRoles(firstSpeaker);
+            dialogueWrap.scrollTop = 0;
+        }
+
+        // ---------- 初始化 ----------
+        function init() {
+            loadCustomNames();
+
+            const firstSpeaker = DIALOGUE_DATA[0]?.speaker || involvedKeys[0];
+            renderRoles(firstSpeaker);
+            while (dialogueWrap.firstChild) {
+                dialogueWrap.removeChild(dialogueWrap.firstChild);
+            }
+            dialogueWrap.appendChild(dialogueEmpty);
+            stepIndicator.innerHTML = `<em>0</em> / <span>${DIALOGUE_DATA.length}</span>`;
+            progressHint.textContent = `点击下方按钮推进对话 · 共 ${DIALOGUE_DATA.length} 句`;
+
+            btnContinue.addEventListener('click', advanceDialogue);
+            btnSkipAll.addEventListener('click', skipAllDialogue);
+            btnReset.addEventListener('click', resetDialogue);
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    if (document.activeElement?.tagName !== 'INPUT' &&
+                        document.activeElement?.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                        if (!btnContinue.disabled) advanceDialogue();
+                    }
+                }
+            });
+
+            const card = document.querySelector('.rough-card');
+            card.addEventListener('click', (e) => {
+                if (e.target.closest('.btn-continue') ||
+                    e.target.closest('.btn-skip') ||
+                    e.target.closest('.btn-reset')) return;
+                if (!btnContinue.disabled) advanceDialogue();
+            });
+
+            console.log('📜 已加载，角色: ' + involvedKeys.join(', '));
+            console.log('📁 图片基础路径: ' + IMAGE_BASE);
+            console.log('📝 当前角色名字: ' + involvedKeys.map(k => getDisplayName(CHARACTERS[k])).join(', '));
+            console.log('⏩ 新增「回顾全部」按钮已就绪');
+        }
+
+        document.addEventListener('DOMContentLoaded', init);
+
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => {
+                if (currentSpeaker) renderRoles(currentSpeaker);
+            }, 200);
+        });
+    </script>
+</body>
+</html>
