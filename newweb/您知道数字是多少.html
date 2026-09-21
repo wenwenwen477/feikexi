@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>您知道数字是多少</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body {
+            min-height: 100vh;
+            background: #060606;
+            color: #8a8478;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 0.92rem;
+            line-height: 2;
+            letter-spacing: 0.8px;
+        }
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 92px 24px 64px;
+            word-break: break-all;
+            white-space: pre-wrap;
+            user-select: text;
+        }
+        #content {
+            width: 100%;
+            max-width: 900px;
+            background: rgba(18,18,18,0.55);
+            border: 1px solid #2a2a2a;
+            border-radius: 5px;
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.03), 0 22px 60px rgba(0,0,0,0.65);
+            padding: 26px 30px 30px;
+            color: #b2aa98;
+            font-size: 0.95rem;
+            line-height: 1.95;
+            letter-spacing: 1px;
+            position: relative;
+        }
+        #content::before {
+            content: '// 终端记录';
+            display: block;
+            color: #5a5a4a;
+            font-size: 0.72rem;
+            letter-spacing: 2px;
+            margin-bottom: 12px;
+            padding-bottom: 10px;
+            border-bottom: 1px dashed #2a2a2a;
+        }
+
+        /* ================= CRT 复古滤镜 ================= */
+        .crt { position: fixed; inset: 0; pointer-events: none; z-index: 999998; opacity: 0; transition: opacity .45s ease; overflow: hidden; }
+        .crt.on { opacity: 1; }
+        .crt-scanlines {
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(
+                to bottom,
+                rgba(0,0,0,0) 0px, rgba(0,0,0,0) 2px,
+                rgba(0,0,0,0.32) 3px, rgba(0,0,0,0.32) 4px
+            );
+            animation: crtJitter 7s linear infinite;
+        }
+        @keyframes crtJitter { 0% { transform: translateY(0); } 100% { transform: translateY(4px); } }
+        .crt-aperture {
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(
+                to right,
+                rgba(255,0,0,0.05) 0px, rgba(0,255,0,0.05) 1px,
+                rgba(0,0,255,0.05) 2px, rgba(0,0,0,0) 3px
+            );
+        }
+        .crt-vignette {
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at center,
+                rgba(0,0,0,0) 42%, rgba(0,0,0,0.32) 78%, rgba(0,0,0,0.85) 100%);
+            box-shadow: inset 0 0 90px 30px rgba(0,0,0,0.65),
+                        inset 0 0 14px 2px rgba(140,200,255,0.06);
+        }
+        .crt-flicker {
+            position: absolute; inset: 0;
+            background: rgba(170,200,255,0.05);
+            mix-blend-mode: screen;
+            animation: crtFlicker .9s steps(6) infinite;
+        }
+        @keyframes crtFlicker {
+            0% { opacity: .02; } 20% { opacity: .07; } 40% { opacity: .03; }
+            60% { opacity: .09; } 80% { opacity: .04; } 100% { opacity: .02; }
+        }
+        .crt-beam {
+            position: absolute; left: 0; right: 0; height: 140px;
+            background: linear-gradient(to bottom,
+                rgba(200,225,255,0) 0%, rgba(200,225,255,0.035) 40%,
+                rgba(210,235,255,0.075) 50%, rgba(200,225,255,0.035) 60%,
+                rgba(200,225,255,0) 100%);
+            animation: crtBeam 7s linear infinite;
+        }
+        @keyframes crtBeam { 0% { top: -160px; } 100% { top: 100%; } }
+        .crt-noise {
+            position: absolute; inset: 0; opacity: .035;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+            background-size: 140px 140px;
+            animation: crtNoiseShift .35s steps(3) infinite;
+        }
+        @keyframes crtNoiseShift {
+            0% { background-position: 0 0; }
+            33% { background-position: -30px 20px; }
+            66% { background-position: 25px -18px; }
+            100% { background-position: 0 0; }
+        }
+
+        body.crt-on { text-shadow: 0.5px 0 rgba(255,70,70,.35), -0.5px 0 rgba(70,220,255,.35); }
+
+        /* ================= 通用悬浮按钮（与解码器一致） ================= */
+        .crt-toggle, .back-btn {
+            position: fixed; z-index: 999999;
+            background: #1a1a1a; border: 2px solid #333; color: #8a8a7a;
+            padding: 10px 20px; font-family: 'Courier New', monospace;
+            font-size: 0.92rem; letter-spacing: 1px; cursor: pointer;
+            box-shadow: 0 3px 0 #0a0a0a;
+            transition: background .15s, border-color .15s, color .15s, opacity .15s;
+            opacity: .6;
+        }
+        .crt-toggle:hover, .back-btn:hover { opacity: 1; border-color: #555; color: #c0b8a8; }
+        .crt-toggle:active, .back-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #0a0a0a; }
+        .crt-toggle.active { border-color: #5a7a5a; color: #8aba8a; opacity: .8; }
+
+        .crt-toggle { top: 14px; right: 14px; }
+        .back-btn {
+            top: 14px; left: 14px;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+        }
+        .back-btn:hover { border-color: #6a5a4a; color: #d0b8a8; }
+        .back-btn.dragging {
+            cursor: grabbing;
+            opacity: .9;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.8);
+            transition: none;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .crt-flicker, .crt-beam, .crt-noise, .crt-scanlines { animation: none !important; }
+        }
+
+        @media (max-width: 600px) {
+            body { font-size: 0.82rem; padding: 82px 16px 48px; }
+            #content { padding: 20px 18px 24px; font-size: 0.85rem; }
+        }
+    </style>
+</head>
+<body>
+    <div id="content"></div>
+
+    <!-- ================= CRT 滤镜层 ================= -->
+    <div class="crt" id="crtFilter">
+        <div class="crt-scanlines"></div>
+        <div class="crt-aperture"></div>
+        <div class="crt-vignette"></div>
+        <div class="crt-flicker"></div>
+        <div class="crt-beam"></div>
+        <div class="crt-noise"></div>
+    </div>
+    <button class="crt-toggle" id="crtToggle">CRT ON</button>
+    <button class="back-btn" id="backBtn" title="拖动移动 · 双击复位">← 返回</button>
+
+    <script>
+        // =================================================================
+        //  页面内容
+        // =================================================================
+        const NUMBERS = "104 116 116 112 115 058 047 047 119 119 119 046 120 105 097 111 104 111 110 103 115 104 117 046 099 111 109 047 117 115 101 114 047 112 114 111 102 105 108 101 047 054 097 048 057 055 052 102 100 048 048 048 048 048 048 048 048 048 049 048 048 055 052 048 049 063 120 115 101 099 095 116 111 107 101 110 061 089 066 049 122 067 068 121 100 095 090 085 112 085 071 086 083 106 067 090 122 116 115 072 113 113 056 090 051 088 073 075 079 109 112 099 114 119 073 085 101 052 116 056 095 085 037 051 068 038 120 115 101 099 095 115 111 117 114 099 101 061 097 112 112 095 115 104 097 114 101 038 120 104 115 115 104 097 114 101 061 038 115 104 097 114 101 082 101 100 073 100 061 079 069 099 121 079 084 111 053 083 107 048 050 078 122 085 121 079 084 103 119 078 106 089 048 079 084 099 055 079 084 089 054 038 097 112 112 116 105 109 101 061 049 055 056 055 053 056 055 049 054 054 038 115 104 097 114 101 095 105 100 061 056 051 052 049 053 098 057 052 057 055 055 100 052 057 099 051 057 051 101 057 057 057 053 102 049 053 097 056 052 100 101 049 038 115 104 097 114 101 095 099 104 097 110 110 101 108 061 113 113";
+        document.getElementById('content').textContent = NUMBERS;
+
+        // =================================================================
+        //  CRT 滤镜开关
+        // =================================================================
+        const CRT_KEY = 'crt_filter_enabled';
+        const crtEl = document.getElementById('crtFilter');
+        const crtToggle = document.getElementById('crtToggle');
+
+        function setCRT(enabled) {
+            crtEl.classList.toggle('on', enabled);
+            document.body.classList.toggle('crt-on', enabled);
+            crtToggle.textContent = enabled ? 'CRT ON' : 'CRT OFF';
+            crtToggle.classList.toggle('active', enabled);
+            try { localStorage.setItem(CRT_KEY, enabled ? '1' : '0'); } catch (e) {}
+        }
+        crtToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setCRT(!crtEl.classList.contains('on'));
+        });
+        setCRT(localStorage.getItem(CRT_KEY) !== '0');
+
+        // =================================================================
+        //  返回按钮（可拖动，位置记忆，双击复位）
+        // =================================================================
+        const HOME_URL = '../index.html';        // ← 若路径不同请修改
+        const BACK_POS_KEY = 'back_btn_pos_v1';
+        const BACK_DEFAULT = { x: 14, y: 14 };
+
+        const backBtn = document.getElementById('backBtn');
+
+        function applyBackPos(x, y) {
+            backBtn.style.left = x + 'px';
+            backBtn.style.top = y + 'px';
+            backBtn.style.right = 'auto';
+            backBtn.style.bottom = 'auto';
+        }
+
+        (function restoreBackPos() {
+            let pos = null;
+            try {
+                const raw = localStorage.getItem(BACK_POS_KEY);
+                if (raw) pos = JSON.parse(raw);
+            } catch (e) {}
+            if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+                const maxX = window.innerWidth - 100;
+                const maxY = window.innerHeight - 40;
+                applyBackPos(Math.max(0, Math.min(maxX, pos.x)), Math.max(0, Math.min(maxY, pos.y)));
+            } else {
+                applyBackPos(BACK_DEFAULT.x, BACK_DEFAULT.y);
+            }
+        })();
+
+        let isDragging = false;
+        let dragOffsetX = 0, dragOffsetY = 0;
+        let startX = 0, startY = 0;
+        let hasMoved = false;
+
+        function beginDrag(clientX, clientY) {
+            const rect = backBtn.getBoundingClientRect();
+            dragOffsetX = clientX - rect.left;
+            dragOffsetY = clientY - rect.top;
+            startX = clientX;
+            startY = clientY;
+            hasMoved = false;
+            isDragging = true;
+            backBtn.classList.add('dragging');
+        }
+
+        function moveDrag(clientX, clientY) {
+            if (!isDragging) return;
+            const dx = clientX - startX;
+            const dy = clientY - startY;
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
+            let newLeft = clientX - dragOffsetX;
+            let newTop = clientY - dragOffsetY;
+            const maxX = window.innerWidth - backBtn.offsetWidth;
+            const maxY = window.innerHeight - backBtn.offsetHeight;
+            newLeft = Math.max(0, Math.min(maxX, newLeft));
+            newTop = Math.max(0, Math.min(maxY, newTop));
+            applyBackPos(newLeft, newTop);
+        }
+
+        function endDrag() {
+            if (!isDragging) return;
+            isDragging = false;
+            backBtn.classList.remove('dragging');
+            if (hasMoved) {
+                const rect = backBtn.getBoundingClientRect();
+                try {
+                    localStorage.setItem(BACK_POS_KEY, JSON.stringify({ x: rect.left, y: rect.top }));
+                } catch (e) {}
+            }
+        }
+
+        backBtn.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            beginDrag(e.clientX, e.clientY);
+        });
+        document.addEventListener('mousemove', (e) => { if (isDragging) moveDrag(e.clientX, e.clientY); });
+        document.addEventListener('mouseup', () => { if (isDragging) endDrag(); });
+
+        backBtn.addEventListener('touchstart', (e) => {
+            const t = e.touches[0];
+            beginDrag(t.clientX, t.clientY);
+        }, { passive: true });
+        document.addEventListener('touchmove', (e) => {
+            if (isDragging) {
+                const t = e.touches[0];
+                moveDrag(t.clientX, t.clientY);
+            }
+        }, { passive: true });
+        document.addEventListener('touchend', () => { if (isDragging) endDrag(); });
+
+        function goHome() {
+            try { window.close(); } catch (err) {}
+            setTimeout(() => { window.location.replace(HOME_URL); }, 200);
+        }
+
+        backBtn.addEventListener('click', (e) => {
+            if (hasMoved) {
+                e.preventDefault();
+                e.stopPropagation();
+                hasMoved = false;
+                return;
+            }
+            e.stopPropagation();
+            goHome();
+        });
+
+        backBtn.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            try { localStorage.removeItem(BACK_POS_KEY); } catch (err) {}
+            applyBackPos(BACK_DEFAULT.x, BACK_DEFAULT.y);
+        });
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                goHome();
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            const rect = backBtn.getBoundingClientRect();
+            const maxX = window.innerWidth - backBtn.offsetWidth;
+            const maxY = window.innerHeight - backBtn.offsetHeight;
+            const newX = Math.max(0, Math.min(maxX, rect.left));
+            const newY = Math.max(0, Math.min(maxY, rect.top));
+            if (newX !== rect.left || newY !== rect.top) applyBackPos(newX, newY);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,1800 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="6i72BufAoLZqmPC4UnrJN2">
+<head data-page-node-id="DG3fpqauMblMED6KX3tXnt">
+    <meta charset="UTF-8" data-page-node-id="Dyf5qlyE64rLiWBzZngASI" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="3OeQUHU5XSZElwymWTsezZ" />
+    <title>故事碎片 · 播放器</title>
+    <style>
+        /* ---------- 基础样式（与您原文件一致） ---------- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0a0a0a;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 20px;
+        }
+        .rough-card {
+            max-width: 960px;
+            width: 100%;
+            padding: 28px 24px 32px;
+            background: #111;
+            border: 2px solid #2a2a2a;
+            box-shadow: 0 8px 0 #1a1a1a, 0 12px 40px rgba(0,0,0,0.8);
+            position: relative;
+        }
+        .rough-card::after {
+            content: '';
+            position: absolute;
+            top: -4px; left: -4px; right: -4px; bottom: -4px;
+            border: 1px dashed #2a2a2a;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+        .title {
+            text-align: center;
+            font-size: 1.8rem;
+            font-weight: 400;
+            letter-spacing: 2px;
+            color: #c0b8a8;
+            text-shadow: 0 0 6px rgba(200,180,150,0.1);
+            border-bottom: 1px solid #2a2a2a;
+            padding-bottom: 10px;
+            margin-bottom: 4px;
+        }
+        .title span { margin-right: 6px; font-size: 1.6rem; }
+        .sub-hint {
+            text-align: center;
+            color: #5a5a5a;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed #222;
+            margin-bottom: 16px;
+        }
+        .sub-hint .progress { color: #7a7a6a; }
+
+        .stage {
+            display: flex;
+            gap: 16px;
+            min-height: 460px;
+            align-items: stretch;
+        }
+        .role-column {
+            flex: 0 0 150px;
+            background: #0d0d0d;
+            border: 2px solid #222;
+            padding: 10px 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 2px 12px rgba(0,0,0,0.7);
+            position: relative;
+            overflow: hidden;
+            min-height: 200px;
+        }
+        .role-column.left-column { border-right: 3px solid #2a1f1a; }
+        .role-column.right-column { border-left: 3px solid #1a222a; }
+
+        .avatar-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-height: 200px;
+        }
+        .role-item {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%) translateY(0px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.6s cubic-bezier(0.34,1.2,0.64,1),
+                        opacity 0.4s ease;
+            will-change: transform;
+            padding: 4px 0;
+            width: auto;
+        }
+        .role-item .avatar-wrap {
+            width: 92px;
+            height: 92px;
+            border: 3px solid #333;
+            border-radius: 2px;
+            overflow: hidden;
+            background: #0a0a0a;
+            transition: border-color 0.4s, box-shadow 0.4s, transform 0.4s,
+                        opacity 0.4s, filter 0.4s;
+            box-shadow: 0 0 12px rgba(0,0,0,0.6);
+            flex-shrink: 0;
+            position: relative;
+            opacity: 0.5;
+            filter: grayscale(0.6);
+        }
+        .role-item .avatar-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            image-rendering: pixelated;
+        }
+        .role-item .avatar-wrap .placeholder-avatar {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #5a4a3a;
+            font-size: 1.5rem;
+            background: #2a1a1a;
+        }
+        .role-item .role-name {
+            font-size: 0.75rem;
+            letter-spacing: 1px;
+            margin-top: 4px;
+            color: #6a6a5a;
+            transition: color 0.4s;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .role-item.active .avatar-wrap {
+            border-color: #8a7a6a;
+            box-shadow: 0 0 28px rgba(120,100,80,0.3);
+            transform: scale(1.10);
+            opacity: 1;
+            filter: grayscale(0);
+        }
+        .role-item.active .role-name { color: #d0c0a8; }
+
+        .dialogue-wrap {
+            flex: 1;
+            background: #0a0a0a;
+            border: 2px solid #222;
+            border-bottom: none;
+            padding: 14px 16px;
+            min-height: 380px;
+            max-height: 480px;
+            overflow-y: auto;
+            overflow-x: hidden;          /* 右侧气泡贴边时不再冒出横向滚动条 */
+            scrollbar-gutter: stable;    /* 竖向滚动条出现/消失时不再挤压内容宽度 */
+            box-shadow: inset 0 2px 12px rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            scroll-behavior: smooth;
+            position: relative;
+        }
+        .dialogue-wrap::-webkit-scrollbar { width: 4px; }
+        .dialogue-wrap::-webkit-scrollbar-track { background: #0a0a0a; }
+        .dialogue-wrap::-webkit-scrollbar-thumb { background: #333; }
+        .dialogue-empty {
+            color: #3a3a3a;
+            font-style: italic;
+            font-size: 0.9rem;
+            text-align: center;
+            margin: auto;
+            letter-spacing: 1px;
+        }
+
+        .msg-item {
+            display: flex;
+            flex-direction: column;
+            max-width: 82%;
+            padding: 10px 16px;
+            border: 2px solid #2a2a2a;
+            background: #111;
+            box-shadow: 0 2px 0 #1a1a1a;
+            opacity: 0;
+            transform: scale(0.7) rotate(var(--rot,0deg));
+            transform-origin: var(--origin, center);
+            animation: msgPopIn 0.45s cubic-bezier(0.22,0.9,0.36,1.1) forwards;
+            word-break: break-word;
+            line-height: 1.6;
+            font-size: 0.95rem;
+            color: #b8b0a0;
+            border-left-width: 4px;
+            border-right-width: 4px;
+        }
+        .msg-item .msg-speaker {
+            font-size: 0.8rem;
+            letter-spacing: 1px;
+            font-weight: 600;
+            margin-bottom: 2px;
+            opacity: 0.8;
+        }
+        .msg-item .msg-text { font-size: 1.1rem; line-height: 1.6; }
+        .msg-item .msg-image {
+            margin-top: 10px;
+            border: 1px solid #2a2a2a;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #0a0a0a;
+            line-height: 0;
+            position: relative;
+        }
+        .msg-item .msg-image img {
+            width: 100%;
+            height: auto;
+            max-height: 320px;
+            object-fit: contain;
+            display: block;
+            background: #0a0a0a;
+            transition: opacity 0.3s ease;
+        }
+        .msg-item .msg-image .img-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px;
+            color: #5a5a5a;
+            font-size: 0.8rem;
+            background: #141414;
+            padding: 16px;
+            font-style: italic;
+            letter-spacing: 0.5px;
+        }
+        .msg-item .msg-image .img-placeholder .icon { margin-right: 8px; font-size: 1.2rem; opacity: 0.5; }
+
+        .msg-item.from-left {
+            align-self: flex-start;
+            border-left-color: #b05a3a;
+            --origin: left center;
+            --rot: -3deg;
+            animation-name: msgPopInLeft;
+        }
+        .msg-item.from-left .msg-speaker { text-align: left; }
+        .msg-item.from-right {
+            align-self: flex-end;
+            border-right-color: #3a7a9a;
+            --origin: right center;
+            --rot: 3deg;
+            animation-name: msgPopInRight;
+        }
+        .msg-item.from-right .msg-speaker { text-align: right; }
+        .msg-item.no-anim { animation: none !important; opacity: 1 !important; transform: none !important; }
+
+        @keyframes msgPopInLeft {
+            0% { opacity:0; transform: translateX(-40px) scale(0.7) rotate(-3deg); }
+            60% { opacity:1; transform: translateX(8px) scale(1.02) rotate(1deg); }
+            100% { opacity:1; transform: translateX(0) scale(1) rotate(0deg); }
+        }
+        @keyframes msgPopInRight {
+            0% { opacity:0; transform: translateX(40px) scale(0.7) rotate(3deg); }
+            60% { opacity:1; transform: translateX(-8px) scale(1.02) rotate(-1deg); }
+            100% { opacity:1; transform: translateX(0) scale(1) rotate(0deg); }
+        }
+
+        .controls-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 18px;
+            margin-top: 14px;
+            padding-top: 14px;
+            border-top: 1px dashed #222;
+            flex-wrap: wrap;
+        }
+        .controls-row button {
+            background: #1a1a1a;
+            border: 2px solid #444;
+            color: #b0a898;
+            padding: 10px 24px;
+            font-size: 0.95rem;
+            cursor: pointer;
+            transition: 0.15s;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 0 #0a0a0a;
+        }
+        .controls-row button:hover {
+            background: #222;
+            border-color: #666;
+            color: #d0c8b8;
+        }
+        .controls-row button:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #0a0a0a;
+        }
+        .controls-row button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 4px 0 #0a0a0a;
+        }
+        .controls-row .btn-continue { min-width: 100px; }
+        .controls-row .btn-skip { border-color: #3a4a3a; color: #8aaa8a; }
+        .controls-row .btn-skip:hover { border-color: #5a7a5a; color: #aacaaa; }
+        .controls-row .btn-auto {
+            border-color: #4a3a3a;
+            color: #b08a7a;
+            min-width: 120px;
+        }
+        .controls-row .btn-auto:hover { border-color: #6a4a3a; color: #d0aa8a; }
+        .controls-row .btn-auto.playing { border-color: #6a5a3a; color: #d0b08a; background: #1e1a14; }
+        .controls-row .btn-auto.paused { border-color: #4a5a3a; color: #8aaa7a; background: #141a14; }
+        .controls-row .btn-auto.completed { border-color: #3a4a3a; color: #5a7a5a; }
+        .controls-row .btn-reset {
+            border: 1px solid #333;
+            color: #5a5a5a;
+            font-size: 0.8rem;
+            padding: 6px 20px;
+        }
+        .controls-row .btn-reset:hover { border-color: #5a3a3a; color: #8a6a6a; }
+        .controls-row .step-indicator {
+            color: #5a5a5a;
+            font-size: 0.8rem;
+            letter-spacing: 0.5px;
+            font-family: 'Courier New', monospace;
+            min-width: 80px;
+            text-align: center;
+        }
+        .controls-row .step-indicator em { color: #8a7a6a; font-style: normal; }
+
+        @media (max-width:720px) {
+            .rough-card { padding: 16px 12px 20px; }
+            .title { font-size:1.4rem; }
+            .stage { flex-direction:column; gap:12px; min-height:auto; }
+            .role-column {
+                flex:0 0 auto;
+                flex-direction:row;
+                justify-content:center;
+                padding:8px 4px;
+                min-height:90px;
+                border:2px solid #222;
+            }
+            .role-column.left-column { border-right:2px solid #222; border-left:4px solid #b05a3a; }
+            .role-column.right-column { border-left:2px solid #222; border-right:4px solid #3a7a9a; }
+            .avatar-container {
+                display:flex;
+                flex-direction:row;
+                flex-wrap:wrap;
+                justify-content:center;
+                gap:6px;
+                padding:2px 0;
+                min-height:unset;
+                height:auto;
+            }
+            .role-item {
+                position:static !important;
+                transform:none !important;
+                padding:2px 4px;
+                flex-shrink:0;
+                transition:none;
+                width:auto;
+            }
+            .role-item .avatar-wrap { width:48px; height:48px; opacity:0.5; filter:grayscale(0.6); }
+            .role-item.active .avatar-wrap { opacity:1; filter:grayscale(0); }
+            .role-item .role-name { font-size:0.5rem; margin-top:2px; }
+            .dialogue-wrap { max-height:320px; min-height:180px; padding:10px 12px; border-bottom:none; }
+            .msg-item { max-width:92%; font-size:0.85rem; padding:8px 12px; }
+            .msg-item .msg-image img { max-height:180px; }
+            .controls-row { gap:10px; }
+            .controls-row button { padding:8px 16px; font-size:0.8rem; }
+            .controls-row .btn-continue { padding:8px 20px; }
+            .controls-row .btn-auto { min-width:100px; }
+            .controls-row .step-indicator { font-size:0.7rem; min-width:60px; }
+        }
+        @media (max-width:460px) {
+            .role-item .avatar-wrap { width:40px; height:40px; }
+            .dialogue-wrap { max-height:240px; min-height:140px; padding:6px 8px; gap:8px; }
+            .msg-item { font-size:0.75rem; padding:6px 10px; max-width:96%; }
+            .msg-item .msg-speaker { font-size:0.6rem; }
+            .msg-item .msg-image img { max-height:120px; }
+            .controls-row button { padding:6px 12px; font-size:0.7rem; }
+            .controls-row .btn-continue { padding:6px 14px; }
+            .controls-row .btn-auto { min-width:80px; }
+            .title { font-size:1.2rem; }
+            .sub-hint { font-size:0.65rem; }
+            .role-column { min-height:70px; }
+        }
+
+        /* ================= CRT 复古滤镜 ================= */
+        .crt { position: fixed; inset: 0; pointer-events: none; z-index: 999998; opacity: 0; transition: opacity .45s ease; overflow: hidden; }
+        .crt.on { opacity: 1; }
+
+        .crt-scanlines {
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(
+                to bottom,
+                rgba(0,0,0,0) 0px,
+                rgba(0,0,0,0) 2px,
+                rgba(0,0,0,0.32) 3px,
+                rgba(0,0,0,0.32) 4px
+            );
+            animation: crtJitter 7s linear infinite;
+        }
+        @keyframes crtJitter { 0% { transform: translateY(0); } 100% { transform: translateY(4px); } }
+
+        .crt-aperture {
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(
+                to right,
+                rgba(255,0,0,0.05) 0px,
+                rgba(0,255,0,0.05) 1px,
+                rgba(0,0,255,0.05) 2px,
+                rgba(0,0,0,0) 3px
+            );
+        }
+
+        .crt-vignette {
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at center,
+                rgba(0,0,0,0) 42%,
+                rgba(0,0,0,0.32) 78%,
+                rgba(0,0,0,0.85) 100%);
+            box-shadow: inset 0 0 90px 30px rgba(0,0,0,0.65),
+                        inset 0 0 14px 2px rgba(140,200,255,0.06);
+        }
+
+        .crt-flicker {
+            position: absolute; inset: 0;
+            background: rgba(170,200,255,0.05);
+            mix-blend-mode: screen;
+            animation: crtFlicker .9s steps(6) infinite;
+        }
+        @keyframes crtFlicker {
+            0% { opacity: .02; } 20% { opacity: .07; } 40% { opacity: .03; }
+            60% { opacity: .09; } 80% { opacity: .04; } 100% { opacity: .02; }
+        }
+
+        .crt-beam {
+            position: absolute; left: 0; right: 0; height: 140px;
+            background: linear-gradient(to bottom,
+                rgba(200,225,255,0) 0%,
+                rgba(200,225,255,0.035) 40%,
+                rgba(210,235,255,0.075) 50%,
+                rgba(200,225,255,0.035) 60%,
+                rgba(200,225,255,0) 100%);
+            animation: crtBeam 7s linear infinite;
+        }
+        @keyframes crtBeam { 0% { top: -160px; } 100% { top: 100%; } }
+
+        .crt-noise {
+            position: absolute; inset: 0;
+            opacity: .035;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+            background-size: 140px 140px;
+            animation: crtNoiseShift .35s steps(3) infinite;
+        }
+        @keyframes crtNoiseShift {
+            0% { background-position: 0 0; }
+            33% { background-position: -30px 20px; }
+            66% { background-position: 25px -18px; }
+            100% { background-position: 0 0; }
+        }
+
+        body.crt-on .rough-card,
+        body.crt-on .msg-item,
+        body.crt-on .role-item .role-name {
+            text-shadow: 0.5px 0 rgba(255,70,70,.35), -0.5px 0 rgba(70,220,255,.35);
+        }
+        body.crt-on .rough-card {
+            box-shadow: 0 8px 0 #1a1a1a, 0 12px 40px rgba(0,0,0,0.8),
+                        0 0 26px rgba(110,220,170,0.045);
+        }
+        body.crt-on .role-item .avatar-wrap img {
+            filter: contrast(1.05) saturate(0.92);
+        }
+
+        /* ================= 通用悬浮按钮 ================= */
+        .crt-toggle, .back-btn {
+            position: fixed; z-index: 999999;
+            background: #1a1a1a; border: 2px solid #333; color: #8a8a7a;
+            padding: 10px 20px; font-family: 'Courier New', monospace;
+            font-size: 0.92rem; letter-spacing: 1px; cursor: pointer;
+            box-shadow: 0 3px 0 #0a0a0a;
+            transition: background .15s, border-color .15s, color .15s, opacity .15s;
+            opacity: .6;
+        }
+        .crt-toggle:hover, .back-btn:hover { opacity: 1; border-color: #555; color: #c0b8a8; }
+        .crt-toggle:active, .back-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #0a0a0a; }
+        .crt-toggle.active { border-color: #5a7a5a; color: #8aba8a; opacity: .8; }
+
+        .crt-toggle { top: 14px; right: 14px; }
+        .back-btn {
+            top: 14px; left: 14px;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+        }
+        .back-btn:hover { border-color: #6a5a4a; color: #d0b8a8; }
+        .back-btn.dragging {
+            cursor: grabbing;
+            opacity: .9;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.8);
+            transition: none;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .crt-flicker, .crt-beam, .crt-noise, .crt-scanlines { animation: none !important; }
+        }
+    </style>
+</head>
+<body data-page-node-id="eGamGa7KJ03upFlu01DP17">
+    <div class="rough-card" id="app" data-page-node-id="MrS92MJrCOMFN3Ec8ppwSV">
+        <div class="title" data-page-node-id="qjKBDYxisvZ3RFKvOkF3GE"><span data-page-node-id="LZNMEkHE9uV0qdLH7WlQhV">📜</span> <span id="storyTitle" data-page-node-id="POqbRJWZYlEoBdo56A9A3I">故事碎片</span></div>
+        <div class="sub-hint" data-page-node-id="wazeGiolb13FGbu1PWSF9Z">
+            <span class="progress" id="progressHint" data-page-node-id="0dQRwrtUZJQ2Db0vURc3cT">点击「继续」推进 · 共 <em id="totalCount" data-page-node-id="csWfG0Ba8L3KSVdiGvOSQS">0</em> 句</span>
+        </div>
+
+        <div class="stage" data-page-node-id="2Kxf7XonAWhOGM735ZyIbE">
+            <div class="role-column left-column" id="leftColumn" data-page-node-id="uCSlPunN1zx9td5BH5MIfp">
+                <div class="avatar-container" id="leftContainer" data-page-node-id="3YnOzo5AbHlOqGOPNxELOy"></div>
+            </div>
+            <div class="dialogue-wrap" id="dialogueWrap" data-page-node-id="ibUyRabHhnvLCwFyIHX9LO">
+                <div class="dialogue-empty" id="dialogueEmpty" data-page-node-id="0ZfIkrklGaJNsaVMQIhpx9">💬 点击「继续」开始阅读……</div>
+            </div>
+            <div class="role-column right-column" id="rightColumn" data-page-node-id="5DQHZimdu6gAtZC1LuhXeC">
+                <div class="avatar-container" id="rightContainer" data-page-node-id="MbDetSZzAHLxrDMf9tnPvH"></div>
+            </div>
+        </div>
+
+        <div class="controls-row" data-page-node-id="CufDzBoPz1Shn4QdH4EGz5">
+            <button class="btn-continue" id="btnContinue" data-page-node-id="tYy2859M7QvfnMW3lIMg9B">▶ 继续</button>
+            <button class="btn-skip" id="btnSkipAll" data-page-node-id="qG00doSlizOKlBl4egg0ti">⏩ 回顾全部</button>
+            <button class="btn-auto" id="btnAutoPlay" data-page-node-id="ykaMeD60xfqXM1Rbnb3zS6">▶ 自动播放</button>
+            <span class="step-indicator" id="stepIndicator" data-page-node-id="zeDDqX9hBShuVkdO09ynBH"><em data-page-node-id="BQu8lpn4xgqJHZCV82upZG">0</em> / <span id="totalDisplay" data-page-node-id="wGQDb5uWCxZRFEuUQJoVaI">0</span></span>
+            <button class="btn-reset" id="btnReset" data-page-node-id="gKTuvFCjCtITCHbaF1pPHJ">⟲ 重来</button>
+        </div>
+    </div>
+
+    <!-- ================= CRT 滤镜层 ================= -->
+    <div class="crt" id="crtFilter" data-page-node-id="UIEBzOivicRhGpL0G2fdec">
+        <div class="crt-scanlines" data-page-node-id="XNoLQ77kwzGZbLsdDRMm6k"></div>
+        <div class="crt-aperture" data-page-node-id="ZLwPj1wclVK9uh6LPMo5hf"></div>
+        <div class="crt-vignette" data-page-node-id="9mOczGpz0mKRf8LGMHchNB"></div>
+        <div class="crt-flicker" data-page-node-id="ziw3wzFgVAsHw63u5BpOaN"></div>
+        <div class="crt-beam" data-page-node-id="6wRROp4p5OiiPQ8x0ZREIq"></div>
+        <div class="crt-noise" data-page-node-id="pwxHyVpXUcsMKSkqojhccc"></div>
+    </div>
+    <button class="crt-toggle" id="crtToggle" data-page-node-id="zgkNTqi6ofjvXoGRNwTCoP">CRT ON</button>
+    <button class="back-btn" id="backBtn" title="拖动移动 · 双击复位" data-page-node-id="HBx9rm3nj6DVszqNmPY2Ws">← 返回主页</button>
+
+    <script>
+        // ================================================================
+        //  📁  图片基础路径（可根据实际调整）
+        // ================================================================
+        const IMAGE_BASE = '../../pic/character/';        // 角色头像
+        const MESSAGE_IMAGE_BASE = '../../pic/img/';     // 消息配图
+
+        function getImagePath(file) { return IMAGE_BASE + file; }
+        function getMessageImagePath(src) {
+            if (!src) return '';
+            if (/^https?:\/\//i.test(src) || src.startsWith('/')) return src;
+            return MESSAGE_IMAGE_BASE + src;
+        }
+
+        // ================================================================
+        //  📖  所有故事数据（按 id 索引）
+        // ================================================================
+        const STORY_DATA = {
+            // ----- TE-0 -----
+            'TE-0': {
+                title: 'TE-0 · Teach',
+                characters: {
+                    '旁观者': { id:0, name:'旁观者', defaultAvatar:'旁观者/旁观者.png', color:'#6a8a4a', side:'left', order:0 },
+                },
+                dialogue: [
+                    { speaker: '旁观者', text: '每个故事都需要一个讲述祂的人……' },
+                    { speaker: '旁观者', text: '而我，我的朋友……我只是一个纯粹的，观察这一切的人。' },
+                    { speaker: '旁观者', text: '信得过我也好，信不过也罢。' },
+                    { speaker: '旁观者', text: '这是您的故事，独属于您的故事。' },
+                    { speaker: '旁观者', text: '试着疏导吧，我们最初的谜题，就是这段故事如何发展。' },
+                    { speaker: '旁观者', text: '觉得眼熟？……哈哈，是的，眼熟。' },
+                    { speaker: '旁观者', text: '正因此，有哪里不一样的时候，您才会振奋，不是吗？' },
+                    { speaker: '旁观者', text: '其他看不懂的，莫名其妙的东西，就放在那里吧。' },
+                    { speaker: '旁观者', text: '会有人和您一起解开她的、我们的谜题的。' },
+					{ speaker: '旁观者', text: '这串分镜已经结束。' },
+                    { speaker: '旁观者', text: '第一个时间代码是：D1H17M15-GA-1-2' },
+                    { speaker: '旁观者', text: '回头吧！如果您需要改写众人的名，就在提问框里输入“改写”二字。' }
+                ]
+            },
+            // ----- D1H17M15-GA-1-2 -----
+            'D1H17M15-GA-1-2': {
+                title: 'D1H17M15-GA-1-2 · Gate',
+                characters: {
+                    '旁观者': { id:0, name:'旁观者', defaultAvatar:'旁观者/旁观者.png', color:'#6a8a4a', side:'left', order:0 },
+                    '识人鱼': { id:1, name:'识人鱼', defaultAvatar:'识人鱼/识人鱼.png', color:'#3a7a9a', side:'left', order:0},
+                    '根系管家': { id:2, name:'根系管家', defaultAvatar:'根系管家/根系管家.png', color:'#8B7355', side:'right', order:1 }
+                },
+                dialogue: [
+                    { speaker: '旁观者', text: '“咔嚓——咔嚓——咔嚓——”没有别的动作，他只是机械地拧着钥匙。' },
+                    { speaker: '旁观者', text: '一下又一下，像是在做着永远没有停歇的工作。' },
+                    { speaker: '识人鱼', text: '（明明还有电……为什么“驱动石”点不着呢？）' },
+                    { speaker: '识人鱼', text: '（就算是因为天气寒冷，暴雪不停，也不至于这个时候把发动机冻上吧？明明“驱动石”已经泡在防冻液里了。）' },
+                    { speaker: '旁观者', text: '第四次拧动，“咳咳咳咳……”，发动机喘着粗气，它的那一口浓痰终于快要被吐出来了。' },
+                    { speaker: '旁观者', text: '第五次。' },
+                    { speaker: '旁观者', text: '“翁！——”它终于醒了。' },
+                    { speaker: '识人鱼', text: '（只差这一丁点路了，前面就是个不知名的庄园，马上就能稍微休息一下了。）' },
+                    { speaker: '旁观者', text: '寒风盘踞在整个车的表面，试图从缝隙里见缝插针，将他缭绕束缚。' },
+                    { speaker: '识人鱼', text: '（这样下去怕不是制热器也要坏掉了……）' },
+                    { speaker: '旁观者', text: '挂挡，他把车开到庄园铁门之前。熄火，拉手刹，拔掉钥匙，下车。' },
+                    { speaker: '旁观者', text: '雪落在他的肩头，暗声低语，促使他抬头看向面前这黑沉沉的古老建筑。' },
+                    { speaker: '识人鱼', text: '（虽然不能确认这扇铁门是否愿意为我敞开，但是，也只能试试运气了。）' },
+                    { speaker: '旁观者', text: '“哐啷——”' },
+                    { speaker: '旁观者', text: '他还没有靠近，枯树一般的老妇人就突然立在门内了。' },
+                    { speaker: '旁观者', text: '她扫描着男子的模样，笔直、沉默，没有什么多余的表情。' },
+                    { speaker: '识人鱼', text: '（看她的服饰，大概率能确定是老管家。）' },
+                    { speaker: '识人鱼', text: '（虽然让人不适，但是不得不说，她似乎很是负责：）' },
+                    { speaker: '根系管家', text: '“庄园不对外开放。”' },
+                    { speaker: '旁观者', text: '铿锵有力，只有这七个字。' },
+                    { speaker: '旁观者', text: '比一切人情冷暖都更有说服力。' },
+                    { speaker: '识人鱼', text: '（只是我真的很冷，没有办法这个时候回去的。）' },
+                    { speaker: '识人鱼', text: '“哦？这里是个庄园啊？”（所以我这么问了。）' },
+                    { speaker: '旁观者', text: '她稍稍迟疑，随即严肃起来，重复说：' },
+                    { speaker: '根系管家', text: '“这里不开放！”' },
+                    { speaker: '识人鱼', text: '（我回应她：）“您不用担心的，我没想要进去。我只是趁着大学假期，来到这附近云游的。”' },
+                    { speaker: '根系管家', text: '“云游去别的地方！这里可是私人领地！”' },
+                    { speaker: '旁观者', text: '她的声音更加聒噪，像是枯木上的老鸦。' },
+                    { speaker: '识人鱼', text: '（干这一行还真是不容易啊……）' },
+                    { speaker: '识人鱼', text: '“好的。打扰您了，我这就离开。”' },
+                    { speaker: '旁观者', text: '他笑一笑，拉了拉领子和围巾，抽开车门，坐回座位。' },
+                    { speaker: '旁观者', text: '插上钥匙，开始点火。' },
+                    { speaker: '旁观者', text: '只是每次都不拧到底。' },
+                    { speaker: '旁观者', text: '“翁！——”' },
+                    { speaker: '识人鱼', text: '（如果点着了火呢？）' },
+                    { speaker: '旁观者', text: '“嘎吱——”' },
+                    { speaker: '识人鱼', text: '（那就快点松离合，这样车子会自己熄火的。）' },
+                    { speaker: '识人鱼', text: '（把我直接扔在这里怎么看都不是一个好选项。）' },
+                    { speaker: '旁观者', text: '“哐啷——”' },
+                    { speaker: '旁观者', text: '所以她又立在门前了。' },
+                    { speaker: '旁观者', text: '他向管家挥了挥手赔了个不是。' },
+                    { speaker: '旁观者', text: '她虽然看不惯他，但也默默看着这个笨蛋一遍又一遍打火。' },
+                    { speaker: '旁观者', text: '只是她仍然不给他开门，直到另一辆车的到来。' },
+                    { speaker: '旁观者', text: '“嘎吱——”' },
+                    { speaker: '旁观者', text: '那辆看起来很有气质的红车停在了他的车旁。' },
+					{ speaker: '旁观者', text: '这串分镜已经结束。' },
+                    { speaker: '旁观者', text: '我将告诉您：她的名是5，推移的时为M5。' }
+                ]
+            },
+            // ----- D1H17M20-GA-1-2-5 -----
+            'D1H17M20-GA-1-2-5': {
+                title: 'D1H17M20-GA-1-2-5 · Gate',
+                characters: {
+                    '旁观者': { id:0, name:'旁观者', defaultAvatar:'旁观者/旁观者.png', color:'#6a8a4a', side:'left', order:1 },
+                    '识人鱼': { id:1, name:'识人鱼', defaultAvatar:'识人鱼/识人鱼.png', color:'#3a7a9a', side:'left', order:0 },
+                    '贵妇人': { id:5, name:'贵妇人', defaultAvatar:'贵妇人/贵妇人.png', color:'#A52A2A', side:'right', order:0 },
+                    '根系管家': { id:2, name:'根系管家', defaultAvatar:'根系管家/根系管家.png', color:'#8B7355', side:'right', order:1 }
+                },
+                dialogue: [
+                    { speaker: '旁观者', text: '开车的是一位女性，看起来二十来岁的样子，很年轻，还做了发型。' },
+                    { speaker: '旁观者', text: '只是她不像是个年轻人——最起码从气质上来说更像是个贵妇人。' },
+                    { speaker: '旁观者', text: '她停车的时候看了他一眼，除此之外再没有什么别的行动。' },
+                    { speaker: '识人鱼', text: '（她是这里的太太？）' },
+                    { speaker: '旁观者', text: '“啵——”红车车门打开关闭，她踏在雪地上，一步又一步。' },
+                    { speaker: '旁观者', text: '“咳啦啦啦……”铁门只为她打开。' },
+                    { speaker: '旁观者', text: '女管家和她交流了眼神，接着，女管家低了低头，像是确认了什么一样。' },
+                    { speaker: '旁观者', text: '她转而看了看他，问女管家：' },
+                    { speaker: '贵妇人', text: '“他是客人？”' },
+                    { speaker: '根系管家', text: '“只是一个迷路的毛头小子而已，我已经警告过他快点离开了！……”' },
+                    { speaker: '根系管家', text: '“可是他笨到一直打不着火！……”' },
+                    { speaker: '旁观者', text: '像是突然意识到什么关键信息，贵妇人又看一看他，看一看他的车。' },
+                    { speaker: '旁观者', text: '然后她把自己的包包递给女管家，拉一拉自己身上的羽绒，慢慢向他走来。' },
+                    { speaker: '识人鱼', text: '（避免不了直接接触，但至少是个机会。）' },
+                    { speaker: '旁观者', text: '她靠近驾驶座时，他摇下了车窗。' },
+                    { speaker: '贵妇人', text: '“要不要进去坐坐？”' },
+                    { speaker: '识人鱼', text: '“嗯？”' },
+                    { speaker: '旁观者', text: '他不解。' },
+                    { speaker: '识人鱼', text: '（没有什么多余的时间可以留给我思考。）' },
+                    { speaker: '识人鱼', text: '（我只能隐约察觉这不是邀请。）' },
+                    { speaker: '识人鱼', text: '“可是庄园不是不对外开放吗？”' },
+                    { speaker: '旁观者', text: '她微微笑了笑，似乎觉得他好笑，似乎也对他很满意。' },
+                    { speaker: '贵妇人', text: '“你知道这里是庄园？”' },
+                    { speaker: '识人鱼', text: '“那位告诉我的。”' },
+                    { speaker: '旁观者', text: '他指了指女管家。' },
+                    { speaker: '旁观者', text: '贵妇人也就看了过去。' },
+                    { speaker: '旁观者', text: '这次换女管家稍稍有些惊讶了。' },
+                    { speaker: '识人鱼', text: '“她真的很负责任啊……这种天气里还站在这里提醒我……”' },
+                    { speaker: '旁观者', text: '“咔嚓——”' },
+                    { speaker: '旁观者', text: '“轰——”' },
+                    { speaker: '识人鱼', text: '（唯一不巧的是……我不小心把火打着了。）' },
+                    { speaker: '识人鱼', text: '（这真的是太坏了。）' },
+                    { speaker: '旁观者', text: '只不过她反而笑了。' },
+                    { speaker: '贵妇人', text: '“防冻液都把驱动石冻上了，打着火也走不远……”' },
+                    { speaker: '旁观者', text: '她慢慢拉了拉羽绒，直起身子慢慢回去了。' },
+                    { speaker: '贵妇人', text: '“让他进来吧。”' },
+                    { speaker: '旁观者', text: '她一边看着他微笑，一边对女管家说。' },
+                    { speaker: '旁观者', text: '顺手接过女管家的黑伞。' },
+                    { speaker: '旁观者', text: '女管家看看他，又低了低头，奉了命，转身去拉铁门了。' },
+                    { speaker: '旁观者', text: '“咳啦啦啦——”' },
+                    { speaker: '旁观者', text: '大敞着的铁门发出古老而又衰颓的呻吟，在这皑皑白雪的病榻上苟延残喘，终于在这无尽的风雪里挪动了身躯。' },
+                    { speaker: '识人鱼', text: '（啊……可算是能够好好歇一歇了……）' },
+                    { speaker: '旁观者', text: '贵妇人只是看着他，没有打算回到庄园内部的样子。' },
+                    { speaker: '识人鱼', text: '（意思是她在等我停到她面前？）' },
+                    { speaker: '识人鱼', text: '（虽然不明白原因，但是既然有求于人，也没有必要拒绝。）' },
+                    { speaker: '旁观者', text: '他小心翼翼地把车开进门去，待到行至她的面前，他停下车，挂空挡，踩住刹车，摇下车窗。' },
+                    { speaker: '旁观者', text: '她轻轻弯了腰，靠近车窗，微微抬了抬手腕，向他指一指她的那辆红车。' },
+                    { speaker: '旁观者', text: '声音里含笑，听起来不像嘲讽，反而似乎对他满意，她说：' },
+                    { speaker: '贵妇人', text: '“介意帮我也停一下车吗？——迷路的【彼得·潘】。”' },
+                    { speaker: '识人鱼', text: '（盲目答应是很奇怪的。）' },
+                    { speaker: '识人鱼', text: '“可是那辆车看起来很贵。”' },
+                    { speaker: '旁观者', text: '她被逗笑了，发笑以后，直起身子，拍拍浮雪。' },
+                    { speaker: '贵妇人', text: '“你看起来也不便宜。”' },
+                    { speaker: '旁观者', text: '她最后抬眼看了他，笑一笑，就转身了。' },
+                    { speaker: '贵妇人', text: '“钥匙没拔。”' },
+                    { speaker: '旁观者', text: '她只是侧眼看了看他。' },
+                    { speaker: '贵妇人', text: '“半个小时以后我会回来一趟。”' },
+                    { speaker: '旁观者', text: '说完最后一句话，她头也不回地，撑开黑伞，在风雪里，慢慢向前，一步一步地踏着，离开了。' },
+                    { speaker: '根系管家', text: '“快点进去吧。”' },
+                    { speaker: '旁观者', text: '女管家抻抻手，示意他往某个方向开车。' },
+                    { speaker: '根系管家', text: '“右拐，直走，到头就是车库。”' },
+                    { speaker: '旁观者', text: '十一个字，也是铿锵有力。' },
+                    { speaker: '识人鱼', text: '“麻烦问一下，车库是自动门吗？还是说我要自己开一下呢？”' },
+                    { speaker: '识人鱼', text: '（一般来说也不会用到手动的吧。）' },
+                    { speaker: '根系管家', text: '“不用你开，晚些我会去关的！……”' },
+                    { speaker: '旁观者', text: '回应有点出乎他的预料。' },
+                    { speaker: '旁观者', text: '女管家也感受到寒风，所以搓了搓手，哈一哈气。' },
+                    { speaker: '识人鱼', text: '“哈哈，好的，谢谢您。”' },
+                    { speaker: '旁观者', text: '他向她道谢，关上车窗，挂了档，启动车子开了进去。' },
+					{ speaker: '旁观者', text: '这串分镜已经结束。' },
+                    { speaker: '旁观者', text: '我将告诉您：他们的名分别为6、7，转移的地是DR（DriveWay），推移的时为M5。' }
+                ]
+            },
+            // ----- D1H17M25-DR-1-6-7 -----
+            'D1H17M25-DR-1-6-7': {
+                title: 'D1H17M25-DR-1-6-7 · DriveWay',
+                characters: {
+                    '旁观者': { id:0, name:'旁观者', defaultAvatar:'旁观者/旁观者.png', color:'#6a8a4a', side:'left', order:0 },
+                    '识人鱼': { id:1, name:'识人鱼', defaultAvatar:'识人鱼/识人鱼.png', color:'#3a7a9a', side:'left', order:1 },
+                    'Maku': { id:6, name:'Maku', defaultAvatar:'Maku/Maku.png', color:'#698B22', side:'right', order:0 },
+                    'Aki': { id:7, name:'Aki', defaultAvatar:'Aki/Aki.png', color:'#5F9EA0', side:'right', order:1 }
+                },
+                dialogue: [
+                    { speaker: '旁观者', text: '整座建筑坐北朝南，东侧这边有一条车道……', image: 'DR-0.png' },
+                    { speaker: '识人鱼', text: '（转向灯，右转方向盘，整个车身牵引着我转移了方位。）' },
+                    { speaker: '旁观者', text: '临近墙壁边缘的——也就是东侧车道更东侧的墙壁附近，是一排一排的灌木丛……' },
+                    { speaker: '识人鱼', text: '（已经覆盖了厚厚的积雪，变得像是冰激凌抹茶雪糕了……）', image: 'DR-ice.png' },
+                    { speaker: '识人鱼', text: '（如果没有暴风雪的话应该还能看起来更好吃吧。）' },
+                    { speaker: '旁观者', text: '很气派，但是也很雅致的楼房结构……'},
+                    { speaker: '旁观者', text: '车轮轧在积雪上，留下另一道坚实有力的车辙。' },
+                    { speaker: '识人鱼', text: '（我们来之前，已经有人来过了？）' },
+                    { speaker: '识人鱼', text: '（大雪覆盖了我的来时路，但是不会抹销我存在的证据。）' },
+                    { speaker: '识人鱼', text: '（呼出一口气，我稍微笑一笑，试图缓解寒意。）' },
+                    { speaker: '识人鱼', text: '（这一条路真的很长，真不愧是庄园啊……）' },
+                    { speaker: '旁观者', text: '再往前一点就是车库了……', image: 'DR-snow.png' },
+                    { speaker: '识人鱼', text: '（他们靠着东侧的灌木丛，所以我向西避行了。）' },
+                    { speaker: '识人鱼', text: '（这里是庄园内部，鸣笛似乎不是一个很好的选项。）' },
+                    { speaker: '识人鱼', text: '（提前停下来说一句吧。）' },
+                    { speaker: '旁观者', text: '“嘎吱——”' },
+                    { speaker: '识人鱼', text: '（我停下了车子，摇下车窗。）' },
+                    { speaker: '识人鱼', text: '（笑着向他们喊：）“你们两个注意一下哦！我要把车停进去！”' },
+                    { speaker: 'Aki', text: '“好！”' },
+                    { speaker: '识人鱼', text: '（长得像女孩的那个回了我一句，自顾自地堆雪人了。）' },
+                    { speaker: 'Maku', text: '“诶咻……”' },
+                    { speaker: '识人鱼', text: '（长得像男孩的那个没有回应我，只是挪开了身子，挪开了挡路的雪球。）' },
+                    { speaker: '旁观者', text: '针织的帽子上标着英文字母，男孩头上的是【Maku】，女孩头上的是【Aki】。' },
+                    { speaker: '识人鱼', text: '（奇怪。）' },
+                    { speaker: '识人鱼', text: '（是戴反了帽子还是我认错了性别呢？）' },
+                    { speaker: '识人鱼', text: '（虽然疑惑，但我还是摇上车窗，呼出一口气，继续开进去了。）' },
+					{ speaker: '旁观者', text: '这串分镜已经结束。' },
+                    { speaker: '旁观者', text: '我将告诉您：她的名为8，转移的地是GRG（Garage），推移的时为M5。' }
+                ]
+            },
+            // ----- D1H17M30-GRG-1-8 -----
+            'D1H17M30-GRG-1-8': {
+                title: 'D1H17M30-GRG-1-8 · Garage',
+                characters: {
+                    '旁观者': { id:0, name:'旁观者', defaultAvatar:'旁观者/旁观者.png', color:'#6a8a4a', side:'left', order:0 },
+                    '识人鱼': { id:1, name:'识人鱼', defaultAvatar:'识人鱼/识人鱼.png', color:'#3a7a9a', side:'left', order:1 },
+                    '辣妹': { id:8, name:'辣妹', defaultAvatar:'辣妹/辣妹.png', color:'#8B8B00', side:'right', order:0 }
+                },
+                dialogue: [
+                    { speaker: '旁观者', text: '车库大门敞开着，里面停了好几辆车。' },
+                    { speaker: '识人鱼', text: '（与其说是车库，不如说是个地下停车场……）' },
+					{ speaker: '识人鱼', text: '（居然还有向下坡道，好夸张的规模……）' },
+                    { speaker: '旁观者', text: '停在最前方的是三辆车。' },
+					{ speaker: '旁观者', text: '一辆黑色桑特纳，一辆白色奔马，一辆皮卡车。' },
+                    { speaker: '识人鱼', text: '（为什么……会有皮卡车？）' },
+                    { speaker: '旁观者', text: '这之中还有给自行车和电动车划定的停车区域。' },
+					{ speaker: '旁观者', text: '电动车区域还附有着【驱动石充电桩】。' },
+                    { speaker: '识人鱼', text: '（真是功能齐全……）' },
+                    { speaker: '识人鱼', text: '（今晚上……在这里凑合凑合吧……）' },
+					{ speaker: '识人鱼', text: '（说不定明天雪就停了呢……）' },
+                    { speaker: '旁观者', text: '“忽！——”' },
+                    { speaker: '识人鱼', text: '（对面停的车突然地开了灯。）' },
+					{ speaker: '识人鱼', text: '（白光扑面，让我无处遁形，也无比刺眼。）' },
+                    { speaker: '旁观者', text: '“吱！——”' },
+                    { speaker: '识人鱼', text: '（这种情况下也只能踩刹车恢复一下了。）' },
+                    { speaker: '识人鱼', text: '（可恶！不可能不鸣笛了。）' },
+                    { speaker: '旁观者', text: '“滴！——”' },
+                    { speaker: '识人鱼', text: '（怎么会在起步的时候开远光灯啊……）' },
+					{ speaker: '识人鱼', text: '（是新手？还是习惯？……）' },
+					{ speaker: '识人鱼', text: '（暴风雪天气这样出去也很危险的啊……）' },
+                    { speaker: '识人鱼', text: '（等视线略微恢复正常。）' },
+					{ speaker: '识人鱼', text: '（我眨了眨眼，好好地看了过去，看看对面的车。）' },
+                    { speaker: '识人鱼', text: '（大概是个黄车。）' },
+					{ speaker: '识人鱼', text: '（只是黄的不够明显，像是大米一般的黄色。）' },
+                    { speaker: '识人鱼', text: '（车是笨田。轻型车。大概率是新手。）' },
+					{ speaker: '旁观者', text: '“砰！——”有人急急忙忙打开了车门。' },
+					{ speaker: '识人鱼', text: '（下车的是个黄发的、小麦肤色的女性）' },
+					{ speaker: '识人鱼', text: '（虽然仍然穿着毛衣羽绒，但是能看出来是个很喜欢穿搭和时尚的人。）' },
+                    { speaker: '识人鱼', text: '（她双手合十，来到我的车窗旁，一遍又一遍拜我，以示抱歉。）' },
+                    { speaker: '识人鱼', text: '（我摇下车窗，听她的话。）' },
+                    { speaker: '辣妹', text: '“对不起对不起抱歉啦～”' },
+                    { speaker: '旁观者', text: '她抱歉地笑着，但是嘻嘻地笑，显得自己没有恶意。' },
+                    { speaker: '辣妹', text: '“刚买的车，不是很熟悉开法……”' },
+					{ speaker: '辣妹', text: '“车灯没搞明白，本来是要开雾灯的。”' },
+                    { speaker: '识人鱼', text: '（靠近一看，她原来还做了美甲。）' },
+					{ speaker: '识人鱼', text: '（是个很精致的人么……可能她真的是个新手吧。）' },
+                    { speaker: '识人鱼', text: '“啊，没有的事……”' },
+					{ speaker: '识人鱼', text: '“辛亏我没有开灯，不然就要撞上您了，那才更坏呢。”' },
+                    { speaker: '识人鱼', text: '（我微笑着说。）' },
+                    { speaker: '识人鱼', text: '（难不成先前的车辙是她的？）' },
+                    { speaker: '辣妹', text: '“哈哈哈……还好没什么大事。”' },
+                    { speaker: '旁观者', text: '她尴尬地笑着说，在为自己的行为粉饰。' },
+                    { speaker: '识人鱼', text: '“雪好像越下越大了，这个时候还要出去吗？”' },
+                    { speaker: '辣妹', text: '“欸？”' },
+                    { speaker: '旁观者', text: '她愣了一下。' },
+                    { speaker: '辣妹', text: '“我不是要出去啊……”' },
+                    { speaker: '旁观者', text: '她眨了眨眼。' },
+                    { speaker: '识人鱼', text: '“嗯？”' },
+                    { speaker: '识人鱼', text: '（我很疑惑。）' },
+                    { speaker: '识人鱼', text: '“那是因为什么？”' },
+                    { speaker: '辣妹', text: '“诶嘿嘿嘿……”' },
+					{ speaker: '辣妹', text: '“我在……呃……练车”' },
+					{ speaker: '辣妹', text: '“倒车入库，倒车入库。”' },
+                    { speaker: '旁观者', text: '她笑了笑，摆了摆手。' },
+                    { speaker: '识人鱼', text: '（果然是个新手啊。）' },
+					{ speaker: '识人鱼', text: '（不过……正因此……）' },
+                    { speaker: '识人鱼', text: '“那个……刚刚的鸣笛声……”' },
+                    { speaker: '识人鱼', text: '（我想确认一件小事。）' },
+                    { speaker: '辣妹', text: '“啊！那个也打扰到您了吗？”' },
+                    { speaker: '旁观者', text: '她眨眨眼，有些张皇。' },
+                    { speaker: '识人鱼', text: '（不用确认了。）' },
+                    { speaker: '识人鱼', text: '“不，没有的事。”' },
+					{ speaker: '识人鱼', text: '“只是感觉可能会吵到门口玩的那两个孩子……”' },
+                    { speaker: '识人鱼', text: '（虽然我知道这么问稍微有点问题。）' },
+					{ speaker: '识人鱼', text: '（但……还是挺有必要的。）' },
+                    { speaker: '辣妹', text: '“哦……这样……”' },
+                    { speaker: '旁观者', text: '她慢慢敛容，不再笑嘻嘻的' },
+					{ speaker: '旁观者', text: '只是微笑，吸一吸气，看看别处。' },
+                    { speaker: '识人鱼', text: '（看来她不想聊和那两个孩子有关的事。）' },
+                    { speaker: '识人鱼', text: '“那我就不打扰您练车了。”' },
+                    { speaker: '识人鱼', text: '（我也向她微笑。）' },
+                    { speaker: '辣妹', text: '“嗯，好！……”' },
+                    { speaker: '旁观者', text: '她尽量笑一笑，点点头，小幅度地，朝我摆摆手，以示再见。' },
+                    { speaker: '旁观者', text: '向后退一退，她再挥一挥手，最后作别。' },
+                    { speaker: '识人鱼', text: '（我也挥一挥手，以示分别。）' },
+                    { speaker: '旁观者', text: '她开门，进入，关上了车门。' },
+                    { speaker: '识人鱼', text: '（好了……那就选里面的车位吧……）' },
+                    { speaker: '识人鱼', text: '（转向灯，左转方向盘，整个车身再次牵引我转移方位。）' },
+                    { speaker: '识人鱼', text: '（直至停稳车子……）' },
+					{ speaker: '识人鱼', text: '（我熄了火，拉上手刹，再看一看那个黄发女性。）' },
+                    { speaker: '识人鱼', text: '（她还在练倒车停车。）' },
+					{ speaker: '识人鱼', text: '（嗯，精神可嘉。）' },
+                    { speaker: '识人鱼', text: '（那个贵妇人，要我帮忙停车……）' },
+					{ speaker: '识人鱼', text: '（居然还要穿过雪地再走一遍啊。）' },
+                    { speaker: '旁观者', text: '“咔——”' },
+                    { speaker: '识人鱼', text: '（一打开车门……）' },
+					{ speaker: '识人鱼', text: '（“嘶……”寒意就止不住地涌过来。）' },
+					{ speaker: '识人鱼', text: '（和大门口那时相比有过之而无不及了。）' },
+                    { speaker: '识人鱼', text: '（一边看看她，我一边慢慢往外走。）' },
+                    { speaker: '识人鱼', text: '（走出车库的同时，我也得出了其他事的结论：）' },
+                    { speaker: '识人鱼', text: '（——之前的车辙不是她留下的。）' },
+					{ speaker: '旁观者', text: '这串分镜已经结束。' },
+                    { speaker: '旁观者', text: '您已经知道他会去往何处，耗费多久，碰见什么人了……' },
+                    { speaker: '旁观者', text: '那么，您可以开始自行推断，我将减少给予您的提示。' }
+                ]
+            },
+            // ----- D1H17M35-DR-1-6-7 -----
+            'D1H17M35-DR-1-6-7': {
+                title: 'D1H17M35-DR-1-6-7 · DriveWay',
+                characters: {
+                    '旁观者': { id:0, name:'旁观者', defaultAvatar:'旁观者/旁观者.png', color:'#6a8a4a', side:'left', order:0 },
+                    '识人鱼': { id:1, name:'识人鱼', defaultAvatar:'识人鱼/识人鱼.png', color:'#3a7a9a', side:'left', order:1 },
+                    'Maku': { id:6, name:'Maku', defaultAvatar:'Maku/Maku.png', color:'#698B22', side:'right', order:0 },
+                    'Aki': { id:7, name:'Aki', defaultAvatar:'Aki/Aki.png', color:'#5F9EA0', side:'right', order:1 }
+                },
+                dialogue: [
+                    { speaker: '识人鱼', text: '“早知道带点厚衣服了……”' },
+                    { speaker: '识人鱼', text: '（我哆哆嗦嗦搓着手，努力维持着身体的温度和大脑的清醒。）' },
+                    { speaker: '识人鱼', text: '（远远地，能看见大门处，有两个人。）' },
+					{ speaker: '识人鱼', text: '（一个是管家，另一个是男人，穿的一身黑。）' },
+                    { speaker: '旁观者', text: '（您可以发现，此时此刻，在时间节点上出现了非线性的编排。）' },
+                    { speaker: '旁观者', text: '（这代表我们的【主机位镜头】发生了推移。）' },
+                    { speaker: '旁观者', text: '（不论推移到何处，镜头总会落回我们的主角身上。）' },
+                    { speaker: '旁观者', text: '（于是主视角不会发生变化，您可以放心梳理。）' },
+                    { speaker: '旁观者', text: '（请享受游戏吧。）' },
+                    { speaker: '旁观者', text: '（我会陪着您的。）' },
+                    { speaker: '识人鱼', text: '（离得太远，听不清他们在聊什么东西。）' },
+					{ speaker: '识人鱼', text: '（倒是能听见身旁的两个孩子在聊什么……）' },
+                    { speaker: 'Maku', text: '“够不够？……”' },
+                    { speaker: 'Aki', text: '“还差一根树枝！”' },
+                    { speaker: '识人鱼', text: '（我就这么站在两个孩子身旁。）' },
+                    { speaker: '识人鱼', text: '（时不时的，对面大门口的两人看看我们，聊着什么事情。）' },
+					{ speaker: '识人鱼', text: '（不用想也知道男人主要看的是我。）' },
+                    { speaker: '识人鱼', text: '（我看看那两个孩子。）' },
+					{ speaker: '识人鱼', text: '（他们两个也看看我，我对着他们笑一笑。）' },
+                    { speaker: '识人鱼', text: '（有一点小事我想确认一下。）' },
+                    { speaker: '识人鱼', text: '“今天还有其他客人吗？”' },
+                    { speaker: '识人鱼', text: '（我问他们，搓了搓手。）' },
+					{ speaker: '识人鱼', text: '（……还是好冷啊。）' },
+                    { speaker: '旁观者', text: '女孩眨眨大眼睛，握着树枝，一边往雪人身上插，一边回应他。' },
+                    { speaker: 'Aki', text: '“都还没有来！”' },
+                    { speaker: '旁观者', text: '男孩看看他，没有说话，只是拍拍雪人，压实雪堆。' },
+                    { speaker: '识人鱼', text: '（嗯……很有意思。）' },
+                    { speaker: '识人鱼', text: '“哈哈，那你们先玩，我去帮忙停车。”' },
+                    { speaker: '识人鱼', text: '（我笑着指一指门口，示意他们我也有事要忙。）' },
+                    { speaker: 'Aki', text: '“嗯！”' },
+                    { speaker: '识人鱼', text: '（戴Aki帽子的女孩点点头，然后不搭理我了。）' },
+					{ speaker: '识人鱼', text: '（戴Maku帽子的男孩搓搓手上的雪，也不看我。）' },
+                    { speaker: '识人鱼', text: '（当小孩还是好啊……）' },
+                    { speaker: '识人鱼', text: '（我双手插兜，希望这样可以稍微暖和一点。）' },
+                    { speaker: '识人鱼', text: '（就连我走在路上的时候，门口的他们两个人也一直在聊……）' },
+					{ speaker: '识人鱼', text: '（可能是有什么很重要的事要交代吧。）' },
+                    { speaker: '识人鱼', text: '（该怎么搞点东西吃一吃呢？……）' },
+                    { speaker: '识人鱼', text: '（就这样，我慢慢走在路上，顺带观察这庄园的规模。）' },
+					{ speaker: '识人鱼', text: '（再靠得近一些了，就笑着向管家挥手。）' },
+					{ speaker: '识人鱼', text: '（有些事我很好奇。）' },
+					{ speaker: '旁观者', text: '这串分镜已经结束。' },
+                    { speaker: '旁观者', text: '如果您需要提示：猜测男人的编号，或者在改写列表里查找。' }
+                ]
+            },
+            // ----- D1H17M35-GA-2-9 -----
+            'D1H17M35-GA-2-9': {
+                title: 'D1H17M35-GA-2-9 · Gate',
+                characters: {
+                    '旁观者': { id:0, name:'旁观者', defaultAvatar:'旁观者/旁观者.png', color:'#6a8a4a', side:'right', order:0 },
+                    '乌鸦': { id:9, name:'乌鸦', defaultAvatar:'乌鸦/乌鸦.png', color:'#696969', side:'left', order:0},
+                    '根系管家': { id:2, name:'根系管家', defaultAvatar:'根系管家/根系管家.png', color:'#8B7355', side:'right', order:1 }
+                },
+                dialogue: [
+                    { speaker: '乌鸦', text: '“他是什么人？”' },
+                    { speaker: '旁观者', text: '男人问。' },
+					{ speaker: '旁观者', text: '那声音就像留声机里放的那般，只是听……都觉得带着磨损。' },
+                    { speaker: '旁观者', text: '浑身上下，他一身漆黑。' },
+                    { speaker: '旁观者', text: '锐利的眼直直盯着远处的那个男青年看。' },
+					{ speaker: '旁观者', text: '仿佛他是什么侵犯了领地的肥鱼，将要被男人一爪撕碎。' },
+					{ speaker: '旁观者', text: '简直就像个黑乌鸦。' },
+                    { speaker: '旁观者', text: '老管家颔首低眉，看看他，再看看远处的男青年' },
+					{ speaker: '旁观者', text: '想想明白，她终于说话：' },
+                    { speaker: '根系管家', text: '“是个云游的，车子坏了。”' },
+					{ speaker: '根系管家', text: '“小姐看他没地方去，让我放进来了。”' },
+                    { speaker: '乌鸦', text: '“没地方去？……这里不就是地方吗？”' },
+                    { speaker: '旁观者', text: '黑乌鸦眯起眼睛，表达轻蔑。' },
+                    { speaker: '旁观者', text: '仰仰脑袋，他接着再问：' },
+                    { speaker: '乌鸦', text: '“斯卡莱特放进来的？……”' },
+                    { speaker: '根系管家', text: '“是。”' },
+                    { speaker: '旁观者', text: '管家点点头。' },
+                    { speaker: '乌鸦', text: '“那她的车怎么不开进去呢？”' },
+                    { speaker: '旁观者', text: '男人伸手指那门外挡路的红车。' },
+                    { speaker: '旁观者', text: '管家慌忙说：' },
+                    { speaker: '根系管家', text: '“小姐要他帮忙停的！……没白把他放进来。”' },
+                    { speaker: '旁观者', text: '黑乌鸦扭转头颅，直勾勾地盯着那条淡蓝色的鱼。' },
+					{ speaker: '旁观者', text: '似笑非笑那般断断续续呼着气。' },
+					{ speaker: '旁观者', text: '在思索过后，就好像得出了什么结论那般：' },
+                    { speaker: '乌鸦', text: '“哦……这样啊。”' },
+                    { speaker: '旁观者', text: '管家没敢多问，只是看看门外的车。' },
+                    { speaker: '旁观者', text: '男人双手背到身后，前后走走。' },
+					{ speaker: '旁观者', text: '眼珠子上抬，转了一圈。' },
+					{ speaker: '旁观者', text: '抬手扫扫身上的雪，再问：' },
+                    { speaker: '乌鸦', text: '“那个女学生在里面练车？”' },
+                    { speaker: '根系管家', text: '“是，她说动静小……”' },
+                    { speaker: '乌鸦', text: '“动静小还那么大的鸣笛声？”' },
+                    { speaker: '旁观者', text: '乌鸦嘎嘎地笑。' },
+					{ speaker: '旁观者', text: '也不知道是该害怕他还是跟着他笑。' },
+                    { speaker: '旁观者', text: '管家也看了看那个正慢慢走过来的男青年。' },
+					{ speaker: '旁观者', text: '半懂不懂地，先就这么回答：' },
+                    { speaker: '根系管家', text: '“可能……撞见那个傻小子了。”' },
+                    { speaker: '乌鸦', text: '“斯卡莱特还说什么？”' },
+                    { speaker: '旁观者', text: '黑乌鸦可能是来了兴趣，微微笑着问老管家。' },
+                    { speaker: '旁观者', text: '（嗯……）' },
+					{ speaker: '旁观者', text: '（他们一家人还是那么爱笑……什么时候都要笑笑。）' },
+                    { speaker: '旁观者', text: '老管家努力回忆了一遍，告诉他：' },
+                    { speaker: '根系管家', text: '“小姐说她半个小时以后再回来一趟。”' },
+                    { speaker: '乌鸦', text: '“聪明，哈哈。”' },
+                    { speaker: '旁观者', text: '背着手，男人笑得开心。' },
+					{ speaker: '旁观者', text: '他不再管什么威胁不威胁，开始交代管家别的事：' },
+                    { speaker: '乌鸦', text: '“如果人来齐，就把三楼西室的酒抬出来。”' },
+					{ speaker: '乌鸦', text: '“——能使唤他绝对不要让他闲着。”' },
+                    { speaker: '旁观者', text: '管家也笑笑，连连点头答应他。' },
+                    { speaker: '旁观者', text: '黑乌鸦抬起手指。' },
+					{ speaker: '旁观者', text: '指一指管家本人，向她交代：' },
+                    { speaker: '乌鸦', text: '“等一会儿斯卡莱特来……”' },
+					{ speaker: '乌鸦', text: '“她怎么问，你就怎么答。”' },
+                    { speaker: '旁观者', text: '他再指一指过来的那个男青年，' },
+                    { speaker: '乌鸦', text: '“答的东西……”' },
+					{ speaker: '乌鸦', text: '“等你关车库的时候再跟我说一遍。”' },
+                    { speaker: '旁观者', text: '管家还是连连答应，遵从他的吩咐。' },
+                    { speaker: '乌鸦', text: '“开始以前，我都会在二楼书房。”' },
+					{ speaker: '乌鸦', text: '“没有要紧事就别来找我。”' },
+                    { speaker: '旁观者', text: '又是一句吩咐。' },
+                    { speaker: '旁观者', text: '只不过这次……' },
+					{ speaker: '旁观者', text: '管家还没示忠，男人就打断了她：' },
+                    { speaker: '乌鸦', text: '“好好看看他是怎么开车的。”' },
+                    { speaker: '旁观者', text: '那笑容里能看见他数不尽的好奇。' },
+					{ speaker: '旁观者', text: '仿佛从来没有看见过这么稀奇的鱼……' },
+					{ speaker: '旁观者', text: '所以好奇他要怎样在水里扑腾。' },
+					{ speaker: '旁观者', text: '所以好奇他口吐白沫的模样。' },
+                    { speaker: '旁观者', text: '笑完，他甩甩黑色的手套，拍拍肩头的雪。' },
+					{ speaker: '旁观者', text: '扶稳黑礼帽，双手背到身后，踏着雪。' },
+					{ speaker: '旁观者', text: '就这样一步一步地走，进入了庄园的正门。' },
+                    { speaker: '旁观者', text: '等他终于离开。' },
+					{ speaker: '旁观者', text: '管家才松了一口气，能够打正眼瞧一瞧那个男青年。' },
+                    { speaker: '根系管家', text: '“他人倒是不错……怎么开车这么笨呢？”' },
+                    { speaker: '旁观者', text: '管家叹一口气，只见那个男青年笑着挥手靠近。' },
+					{ speaker: '旁观者', text: '这串分镜已经结束。' },
+					{ speaker: '旁观者', text: '（至此，您已完了所有的工，请等待后续的更新。）' },
+					{ speaker: '旁观者', text: '（如若还有想问的事，请尽管问吧。）' }
+                ]
+            },
+            // ----- JCCBC-0 -----
+            'JCCBC-0': {
+                title: 'JCCBC-0 · 您的消息',
+                characters: {
+                    '旁观者': { id:0, name:'旁观者', defaultAvatar:'旁观者/旁观者.png', color:'#6a8a4a', side:'left', order:1 },
+                    '您': { id:999, name:'', defaultAvatar:'', color:'#778899', side:'right', order:0 },
+                    '斐可悉': { id:999, name:'', defaultAvatar:'', color:'#CFCFCF', side:'left', order:0 },
+                },
+                dialogue: [
+
+                ]
+            },
+            // ----- JCCBC-JP -----
+            'JCCBC-JP': {
+                title: 'JCCBC-JP · 您的消息',
+                characters: {
+                    '旁观者': { id:0, name:'旁观者', defaultAvatar:'旁观者/旁观者.png', color:'#6a8a4a', side:'left', order:1 },
+                    '您': { id:999, name:'', defaultAvatar:'', color:'#778899', side:'right', order:0 },
+                    '斐可悉': { id:999, name:'', defaultAvatar:'', color:'#CFCFCF', side:'left', order:0 },
+                },
+                dialogue: [
+
+                ]
+            },
+            // ----- JCCBC-JP-5 -----
+            'JCCBC-JP-5': {
+                title: 'JCCBC-JP-5 · 您的消息',
+                characters: {
+                    '旁观者': { id:0, name:'旁观者', defaultAvatar:'旁观者/旁观者.png', color:'#6a8a4a', side:'left', order:1 },
+                    '您': { id:999, name:'', defaultAvatar:'', color:'#778899', side:'right', order:0 },
+                    '斐可悉': { id:999, name:'', defaultAvatar:'', color:'#CFCFCF', side:'left', order:0 },
+                },
+                dialogue: [
+
+                ]
+            }
+        };
+
+        // ================================================================
+        //  🔄 改写名字加载（与 index 共享 localStorage 键名）
+        // ================================================================
+        function loadCustomNames() {
+            const saved = localStorage.getItem('custom_character_names');
+            if (saved) {
+                try {
+                    const names = JSON.parse(saved);
+                    const defaultOrder = ['旁观者', '识人鱼', '根系管家', '说谎者', '影中人', '贵妇人','Maku','Aki','辣妹','乌鸦'];
+                    for (const storyId in STORY_DATA) {
+                        const chars = STORY_DATA[storyId].characters;
+                        for (const key in chars) {
+                            const idx = defaultOrder.indexOf(key);
+                            if (idx !== -1 && names[idx] && names[idx].trim()) {
+                                chars[key].name = names[idx].trim();
+                            }
+                        }
+                    }
+                } catch (e) { console.warn('读取改写名字失败:', e); }
+            }
+        }
+        loadCustomNames();
+
+        function getDisplayName(char) {
+            return `[${char.id}]${char.name}`;
+        }
+
+        // ================================================================
+        //  🚀 播放器核心
+        // ================================================================
+        const leftContainer = document.getElementById('leftContainer');
+        const rightContainer = document.getElementById('rightContainer');
+        const dialogueWrap = document.getElementById('dialogueWrap');
+        const dialogueEmpty = document.getElementById('dialogueEmpty');
+        const btnContinue = document.getElementById('btnContinue');
+        const btnSkipAll = document.getElementById('btnSkipAll');
+        const btnAutoPlay = document.getElementById('btnAutoPlay');
+        const btnReset = document.getElementById('btnReset');
+        const stepIndicator = document.getElementById('stepIndicator');
+        const totalDisplay = document.getElementById('totalDisplay');
+        const totalCount = document.getElementById('totalCount');
+        const progressHint = document.getElementById('progressHint');
+        const storyTitle = document.getElementById('storyTitle');
+
+        let currentIndex = 0;
+        let isAnimating = false;
+        let currentSpeaker = null;
+        let autoPlayTimer = null;
+        let autoPlayState = 'idle'; // idle | playing | paused | completed
+        const AUTO_INTERVAL = 1100;
+        let fastForwarding = false;   // 快进 / 直接全显时，关闭平滑滚动以保证跟随
+        let instantReveal = false;    // 直接全显时，文段不带弹入动画
+
+        // ---------- 获取当前故事数据 ----------
+        const urlParams = new URLSearchParams(window.location.search);
+        const storyId = urlParams.get('id') || 'D1H17M25-DR-1-6-7';
+        const story = STORY_DATA[storyId];
+        if (!story) {
+            document.body.innerHTML = `<div style="color:#b8b0a0;padding:40px;text-align:center;">❌ 未找到档案：${storyId}</div>`;
+            throw new Error('故事不存在');
+        }
+
+        storyTitle.textContent = story.title;
+        const DIALOGUE_DATA = story.dialogue;
+        const CHARACTERS = story.characters;
+
+        const involvedKeys = [];
+        const seen = new Set();
+        for (const item of DIALOGUE_DATA) {
+            if (!seen.has(item.speaker)) {
+                seen.add(item.speaker);
+                involvedKeys.push(item.speaker);
+            }
+        }
+        for (const key of involvedKeys) {
+            if (!CHARACTERS[key]) {
+                CHARACTERS[key] = {
+                    id: 99,
+                    name: key,
+                    defaultAvatar: `${key}/${key}.png`,
+                    color: '#888',
+                    side: 'left',
+                    order: 0
+                };
+            }
+        }
+        if (involvedKeys.length === 0) {
+            for (const k in CHARACTERS) involvedKeys.push(k);
+        }
+
+        const roleState = {};
+        const currentPortraits = {};
+        for (const key of involvedKeys) {
+            roleState[key] = {
+                side: CHARACTERS[key].side || 'left',
+                order: CHARACTERS[key].order || 0
+            };
+            currentPortraits[key] = CHARACTERS[key].defaultAvatar;
+        }
+
+        totalDisplay.textContent = DIALOGUE_DATA.length;
+        totalCount.textContent = DIALOGUE_DATA.length;
+
+        // ---------- 创建角色 DOM ----------
+        const roleElements = {};
+        const containerMap = { 'left': leftContainer, 'right': rightContainer };
+
+        function createRoleElement(key) {
+            const char = CHARACTERS[key];
+            const item = document.createElement('div');
+            item.className = 'role-item';
+            item.dataset.role = key;
+
+            const avatarWrap = document.createElement('div');
+            avatarWrap.className = 'avatar-wrap';
+            const img = document.createElement('img');
+            img.src = getImagePath(currentPortraits[key] || char.defaultAvatar);
+            img.alt = char.name;
+            img.onerror = function() {
+                this.style.display = 'none';
+                let placeholder = this.parentElement.querySelector('.placeholder-avatar');
+                if (!placeholder) {
+                    placeholder = document.createElement('span');
+                    placeholder.className = 'placeholder-avatar';
+                    placeholder.textContent = '?';
+                    this.parentElement.appendChild(placeholder);
+                }
+            };
+            avatarWrap.appendChild(img);
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'role-name';
+            nameSpan.textContent = getDisplayName(char);
+
+            item.appendChild(avatarWrap);
+            item.appendChild(nameSpan);
+            return item;
+        }
+
+        for (const key of involvedKeys) {
+            const el = createRoleElement(key);
+            const side = roleState[key].side;
+            (containerMap[side] || leftContainer).appendChild(el);
+            roleElements[key] = el;
+        }
+
+        // ---------- 渲染角色（居中） ----------
+        function renderRoles(speakerKey) {
+            const leftKeys = involvedKeys.filter(k => roleState[k].side === 'left');
+            const rightKeys = involvedKeys.filter(k => roleState[k].side === 'right');
+            leftKeys.sort((a,b) => roleState[a].order - roleState[b].order);
+            rightKeys.sort((a,b) => roleState[a].order - roleState[b].order);
+            layoutContainer(leftContainer, leftKeys, speakerKey);
+            layoutContainer(rightContainer, rightKeys, speakerKey);
+
+            for (const key of involvedKeys) {
+                const el = roleElements[key];
+                const isActive = (key === speakerKey);
+                el.classList.toggle('active', isActive);
+                const char = CHARACTERS[key];
+                const avatarWrap = el.querySelector('.avatar-wrap');
+                const nameSpan = el.querySelector('.role-name');
+                nameSpan.textContent = getDisplayName(char);
+                if (isActive) {
+                    avatarWrap.style.borderColor = char.color;
+                    avatarWrap.style.boxShadow = `0 0 30px ${char.color}44`;
+                    nameSpan.style.color = char.color;
+                } else {
+                    avatarWrap.style.borderColor = '#333';
+                    avatarWrap.style.boxShadow = '0 0 12px rgba(0,0,0,0.6)';
+                    nameSpan.style.color = '#6a6a5a';
+                }
+            }
+            currentSpeaker = speakerKey;
+        }
+
+        function layoutContainer(container, keys, speakerKey) {
+            if (keys.length === 0) return;
+            let containerHeight = container.clientHeight || 400;
+            const itemHeight = 92 + 20 + 8;
+            const activeIndex = keys.indexOf(speakerKey);
+            const centerIndex = (activeIndex !== -1) ? activeIndex : 0;
+            const centerOffset = (containerHeight - itemHeight) / 2;
+            for (let i=0; i<keys.length; i++) {
+                const key = keys[i];
+                const el = roleElements[key];
+                const targetParent = container;
+                if (el.parentNode !== targetParent) targetParent.appendChild(el);
+                const offsetY = centerOffset + (i - centerIndex) * itemHeight;
+                el.style.transform = `translateX(-50%) translateY(${offsetY}px)`;
+            }
+        }
+
+        // ---------- 滚动到底部（快进时强制瞬时，避免平滑滚动追不上） ----------
+        function scrollToBottom(forceInstant) {
+            if (forceInstant) {
+                const prev = dialogueWrap.style.scrollBehavior;
+                dialogueWrap.style.scrollBehavior = 'auto';
+                dialogueWrap.scrollTop = dialogueWrap.scrollHeight;
+                dialogueWrap.style.scrollBehavior = prev;
+            } else {
+                dialogueWrap.scrollTop = dialogueWrap.scrollHeight;
+            }
+        }
+
+        // ---------- 处理单条对话 ----------
+        function processDialogueItem(item) {
+            const { speaker, text, portrait, setSide, setOrder, image } = item;
+            if (setSide !== undefined) roleState[speaker].side = setSide;
+            if (setOrder !== undefined) roleState[speaker].order = setOrder;
+            if (portrait) currentPortraits[speaker] = portrait;
+            else currentPortraits[speaker] = CHARACTERS[speaker].defaultAvatar;
+            const el = roleElements[speaker];
+            const img = el.querySelector('img');
+            if (img) {
+                const placeholder = el.querySelector('.placeholder-avatar');
+                if (placeholder) placeholder.remove();
+                img.style.display = '';
+                img.src = getImagePath(currentPortraits[speaker]);
+            }
+            renderRoles(speaker);
+
+            const char = CHARACTERS[speaker];
+            const side = roleState[speaker].side || 'left';
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `msg-item from-${side}`;
+            if (instantReveal) msgDiv.classList.add('no-anim');
+            msgDiv.style.borderLeftColor = side === 'left' ? char.color : '#2a2a2a';
+            msgDiv.style.borderRightColor = side === 'right' ? char.color : '#2a2a2a';
+
+            const nameSpan = document.createElement('div');
+            nameSpan.className = 'msg-speaker';
+            nameSpan.textContent = getDisplayName(char);
+            nameSpan.style.color = char.color;
+
+            const textSpan = document.createElement('div');
+            textSpan.className = 'msg-text';
+            textSpan.textContent = text;
+
+            msgDiv.appendChild(nameSpan);
+            msgDiv.appendChild(textSpan);
+
+            if (image) {
+                const imgContainer = document.createElement('div');
+                imgContainer.className = 'msg-image';
+                const imgEl = document.createElement('img');
+                imgEl.src = getMessageImagePath(image);
+                imgEl.alt = '配图';
+                imgEl.loading = 'lazy';
+                // 图片就绪后才把容器挂进消息里：否则加载期间会在气泡下方留一个空的深色矩形
+                imgEl.onload = function() {
+                    if (!imgContainer.parentNode) msgDiv.appendChild(imgContainer);
+                    if (fastForwarding) scrollToBottom(true);
+                };
+                imgEl.onerror = function() {
+                    this.style.display = 'none';
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'img-placeholder';
+                    placeholder.innerHTML = `<span class="icon">🖼️</span> 图片加载失败：${image}`;
+                    imgContainer.appendChild(placeholder);
+                    if (!imgContainer.parentNode) msgDiv.appendChild(imgContainer);
+                };
+                imgContainer.appendChild(imgEl);
+            }
+
+            if (dialogueEmpty && dialogueEmpty.parentNode === dialogueWrap) {
+                dialogueWrap.removeChild(dialogueEmpty);
+            }
+            dialogueWrap.appendChild(msgDiv);
+            scrollToBottom(fastForwarding);
+        }
+
+        // ---------- 推进 ----------
+        function advanceDialogue() {
+            if (isAnimating) return;
+            if (currentIndex >= DIALOGUE_DATA.length) return;
+            isAnimating = true;
+            try {
+                const item = DIALOGUE_DATA[currentIndex];
+                processDialogueItem(item);
+                currentIndex++;
+                stepIndicator.innerHTML = `<em>${currentIndex}</em> / <span>${DIALOGUE_DATA.length}</span>`;
+                if (currentIndex >= DIALOGUE_DATA.length) {
+                    markReviewed(storyId);
+                    btnContinue.disabled = true;
+                    btnContinue.textContent = '✓ 已读完';
+                    btnSkipAll.disabled = true;
+                    btnSkipAll.textContent = '✓ 已回顾';
+                    progressHint.textContent = '📖 故事碎片已完整呈现。';
+                    if (autoPlayState === 'playing' || autoPlayState === 'paused') {
+                        stopAutoPlay();
+                        updateAutoPlayUI('completed');
+                    }
+                } else {
+                    btnContinue.disabled = false;
+                    btnContinue.textContent = '▶ 继续';
+                    progressHint.textContent = `点击继续 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+                }
+            } catch (e) { console.error(e); }
+            finally { setTimeout(() => { isAnimating = false; }, 400); }
+        }
+
+        // ---------- 自动播放 ----------
+        function updateAutoPlayUI(state) {
+            autoPlayState = state;
+            btnAutoPlay.classList.remove('playing','paused','completed');
+            switch (state) {
+                case 'idle': btnAutoPlay.textContent = '▶ 自动播放'; btnAutoPlay.disabled = false; break;
+                case 'playing': btnAutoPlay.textContent = '⏸ 暂停'; btnAutoPlay.disabled = false; btnAutoPlay.classList.add('playing'); break;
+                case 'paused': btnAutoPlay.textContent = '▶ 继续播放'; btnAutoPlay.disabled = false; btnAutoPlay.classList.add('paused'); break;
+                case 'completed': btnAutoPlay.textContent = '✓ 已播放'; btnAutoPlay.disabled = true; btnAutoPlay.classList.add('completed'); break;
+            }
+            const isAuto = (state === 'playing' || state === 'paused');
+            btnContinue.disabled = isAuto || (currentIndex >= DIALOGUE_DATA.length);
+            btnSkipAll.disabled = isAuto || (currentIndex >= DIALOGUE_DATA.length);
+            if (isAuto) {
+                btnContinue.textContent = '⏸ 自动中';
+                btnSkipAll.textContent = '⏸ 自动中';
+            } else if (currentIndex >= DIALOGUE_DATA.length) {
+                btnContinue.textContent = '✓ 已读完';
+                btnSkipAll.textContent = '✓ 已回顾';
+            } else {
+                btnContinue.textContent = '▶ 继续';
+                btnSkipAll.textContent = '⏩ 回顾全部';
+            }
+            if (state === 'playing') progressHint.textContent = `▶ 自动播放中 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+            else if (state === 'paused') progressHint.textContent = `⏸ 已暂停 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+            else if (state === 'completed') progressHint.textContent = '📖 故事碎片已完整呈现。';
+            else progressHint.textContent = currentIndex >= DIALOGUE_DATA.length ? '📖 故事碎片已完整呈现。' : `点击继续 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+        }
+
+        function startAutoPlay() {
+            if (autoPlayTimer) return;
+            if (currentIndex >= DIALOGUE_DATA.length) { updateAutoPlayUI('completed'); return; }
+            updateAutoPlayUI('playing');
+            setTimeout(autoPlayNext, 100);
+        }
+
+        function autoPlayNext() {
+            if (autoPlayState !== 'playing') return;
+            if (currentIndex >= DIALOGUE_DATA.length) { stopAutoPlay(); updateAutoPlayUI('completed'); return; }
+            advanceDialogue();
+            if (currentIndex >= DIALOGUE_DATA.length) { stopAutoPlay(); updateAutoPlayUI('completed'); return; }
+            autoPlayTimer = setTimeout(autoPlayNext, AUTO_INTERVAL);
+        }
+
+        function pauseAutoPlay() {
+            if (autoPlayTimer) { clearTimeout(autoPlayTimer); autoPlayTimer = null; }
+            if (autoPlayState === 'playing') updateAutoPlayUI('paused');
+        }
+
+        function resumeAutoPlay() {
+            if (autoPlayState === 'paused' && currentIndex < DIALOGUE_DATA.length) {
+                updateAutoPlayUI('playing');
+                setTimeout(autoPlayNext, 200);
+            } else if (currentIndex >= DIALOGUE_DATA.length) updateAutoPlayUI('completed');
+        }
+
+        function stopAutoPlay() {
+            if (autoPlayTimer) { clearTimeout(autoPlayTimer); autoPlayTimer = null; }
+        }
+
+        function toggleAutoPlay() {
+            if (autoPlayState === 'idle') startAutoPlay();
+            else if (autoPlayState === 'playing') pauseAutoPlay();
+            else if (autoPlayState === 'paused') resumeAutoPlay();
+        }
+
+        // ---------- 回顾全部 ----------
+        async function skipAllDialogue() {
+            if (isAnimating) return;
+            if (currentIndex >= DIALOGUE_DATA.length) return;
+            if (autoPlayState === 'playing' || autoPlayState === 'paused') {
+                stopAutoPlay();
+                updateAutoPlayUI('idle');
+            }
+            isAnimating = true;
+            fastForwarding = true;
+            btnContinue.disabled = true;
+            btnSkipAll.disabled = true;
+            btnAutoPlay.disabled = true;
+            btnReset.disabled = true;
+            btnSkipAll.textContent = '⏳ 回顾中…';
+            try {
+                while (currentIndex < DIALOGUE_DATA.length) {
+                    const item = DIALOGUE_DATA[currentIndex];
+                    processDialogueItem(item);
+                    currentIndex++;
+                    stepIndicator.innerHTML = `<em>${currentIndex}</em> / <span>${DIALOGUE_DATA.length}</span>`;
+                    progressHint.textContent = `⏩ 回顾中 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+                    await new Promise(r => setTimeout(r, 60));
+                }
+                scrollToBottom(true);
+                fastForwarding = false;
+                btnContinue.disabled = true;
+                btnContinue.textContent = '✓ 已读完';
+                btnSkipAll.disabled = true;
+                btnSkipAll.textContent = '✓ 已回顾';
+                btnAutoPlay.disabled = true;
+                btnAutoPlay.textContent = '✓ 已播放';
+                btnAutoPlay.classList.add('completed');
+                btnReset.disabled = false;
+                progressHint.textContent = '📖 故事碎片已完整呈现。';
+                markReviewed(storyId);
+                updateAutoPlayUI('completed');
+            } catch (e) { console.error(e); }
+            finally {
+                isAnimating = false;
+                fastForwarding = false;
+                btnSkipAll.disabled = false;
+                btnAutoPlay.disabled = false;
+                btnReset.disabled = false;
+                if (currentIndex < DIALOGUE_DATA.length) {
+                    btnContinue.disabled = false;
+                    btnContinue.textContent = '▶ 继续';
+                    btnSkipAll.textContent = '⏩ 回顾全部';
+                    updateAutoPlayUI('idle');
+                }
+            }
+        }
+
+        // ---------- 重置 ----------
+        function resetDialogue() {
+            if (isAnimating) return;
+            unmarkReviewed(storyId);
+            if (autoPlayTimer) { clearTimeout(autoPlayTimer); autoPlayTimer = null; }
+            for (const key of involvedKeys) {
+                roleState[key].side = CHARACTERS[key].side || 'left';
+                roleState[key].order = CHARACTERS[key].order || 0;
+                currentPortraits[key] = CHARACTERS[key].defaultAvatar;
+                const el = roleElements[key];
+                const img = el.querySelector('img');
+                if (img) {
+                    const placeholder = el.querySelector('.placeholder-avatar');
+                    if (placeholder) placeholder.remove();
+                    img.style.display = '';
+                    img.src = getImagePath(currentPortraits[key]);
+                }
+            }
+            while (dialogueWrap.firstChild) dialogueWrap.removeChild(dialogueWrap.firstChild);
+            dialogueWrap.appendChild(dialogueEmpty);
+            currentIndex = 0;
+            btnContinue.disabled = false;
+            btnContinue.textContent = '▶ 继续';
+            btnSkipAll.disabled = false;
+            btnSkipAll.textContent = '⏩ 回顾全部';
+            btnReset.disabled = false;
+            stepIndicator.innerHTML = `<em>0</em> / <span>${DIALOGUE_DATA.length}</span>`;
+            progressHint.textContent = `点击下方按钮推进对话 · 共 ${DIALOGUE_DATA.length} 句`;
+            updateAutoPlayUI('idle');
+            const firstSpeaker = DIALOGUE_DATA[0]?.speaker || involvedKeys[0];
+            renderRoles(firstSpeaker);
+            dialogueWrap.scrollTop = 0;
+        }
+
+        // ---------- 已读标记（播放完一次后，下次跳转直接展示全部） ----------
+        const REVIEWED_KEY = 'spg_story_reviewed_v1';
+        function getReviewedSet() {
+            try { return new Set(JSON.parse(localStorage.getItem(REVIEWED_KEY) || '[]')); }
+            catch (e) { return new Set(); }
+        }
+        function isReviewed(id) { return getReviewedSet().has(id); }
+        // 清除某段故事的已读标记（用于「⟲ 重来」，与主界面「清空记录」语义一致）
+        function unmarkReviewed(id) {
+            try {
+                const s = getReviewedSet(); s.delete(id);
+                localStorage.setItem(REVIEWED_KEY, JSON.stringify(Array.from(s)));
+            } catch (e) {}
+        }
+        function markReviewed(id) {
+            try {
+                const s = getReviewedSet(); s.add(id);
+                localStorage.setItem(REVIEWED_KEY, JSON.stringify(Array.from(s)));
+            } catch (e) {}
+        }
+
+        // 直接把全部文段铺出来（无弹入动画、瞬时滚到底），用于「已读过的档案再次打开」
+        function showAllInstant() {
+            fastForwarding = true;
+            instantReveal = true;
+            while (dialogueWrap.firstChild) dialogueWrap.removeChild(dialogueWrap.firstChild);
+            for (const item of DIALOGUE_DATA) { processDialogueItem(item); }
+            currentIndex = DIALOGUE_DATA.length;
+            stepIndicator.innerHTML = `<em>${DIALOGUE_DATA.length}</em> / <span>${DIALOGUE_DATA.length}</span>`;
+            instantReveal = false;
+            fastForwarding = false;
+            markReviewed(storyId);
+            btnContinue.disabled = true; btnContinue.textContent = '✓ 已读完';
+            btnSkipAll.disabled = true; btnSkipAll.textContent = '✓ 已回顾';
+            btnAutoPlay.disabled = true; btnAutoPlay.textContent = '✓ 已播放'; btnAutoPlay.classList.add('completed');
+            progressHint.textContent = '📖 故事碎片已完整呈现。';
+            scrollToBottom(true);
+        }
+
+        // ---------- 初始化 ----------
+        function init() {
+            loadCustomNames();
+            const firstSpeaker = DIALOGUE_DATA[0]?.speaker || involvedKeys[0];
+            renderRoles(firstSpeaker);
+            while (dialogueWrap.firstChild) dialogueWrap.removeChild(dialogueWrap.firstChild);
+            dialogueWrap.appendChild(dialogueEmpty);
+            stepIndicator.innerHTML = `<em>0</em> / <span>${DIALOGUE_DATA.length}</span>`;
+            progressHint.textContent = `点击下方按钮推进对话 · 共 ${DIALOGUE_DATA.length} 句`;
+
+            btnContinue.addEventListener('click', function() {
+                if (autoPlayState === 'playing' || autoPlayState === 'paused') {
+                    stopAutoPlay();
+                    updateAutoPlayUI('idle');
+                    if (currentIndex < DIALOGUE_DATA.length) {
+                        btnContinue.disabled = false;
+                        btnContinue.textContent = '▶ 继续';
+                        btnSkipAll.disabled = false;
+                        btnSkipAll.textContent = '⏩ 回顾全部';
+                        progressHint.textContent = `点击继续 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+                    }
+                }
+                advanceDialogue();
+            });
+            btnSkipAll.addEventListener('click', skipAllDialogue);
+            btnAutoPlay.addEventListener('click', toggleAutoPlay);
+            btnReset.addEventListener('click', resetDialogue);
+
+            document.addEventListener('keydown', (e) => {
+                if (e.key === ' ' || e.key === 'Enter') {
+                    if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                        if (autoPlayState === 'playing') { pauseAutoPlay(); return; }
+                        else if (autoPlayState === 'paused') { resumeAutoPlay(); return; }
+                        if (!btnContinue.disabled) advanceDialogue();
+                    }
+                }
+            });
+
+            document.querySelector('.rough-card').addEventListener('click', (e) => {
+                if (e.target.closest('button')) return;
+                if (autoPlayState === 'playing' || autoPlayState === 'paused') return;
+                if (!btnContinue.disabled) advanceDialogue();
+            });
+
+            console.log(`📜 播放器加载档案: ${storyId}，共 ${DIALOGUE_DATA.length} 句`);
+            console.log('📁 角色图片路径: ' + IMAGE_BASE);
+            console.log('🖼️ 消息图片路径: ' + MESSAGE_IMAGE_BASE);
+
+            // 已完整播放过的档案，再次打开时直接展示全部文段
+            if (isReviewed(storyId)) showAllInstant();
+        }
+
+        // ---------- 窗口 resize 重定位角色 ----------
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { if (currentSpeaker) renderRoles(currentSpeaker); }, 200);
+        });
+
+        document.addEventListener('DOMContentLoaded', init);
+
+        // =================================================================
+        //  🆕 CRT 滤镜开关（与其他页面共享同一 localStorage 键）
+        // =================================================================
+        const CRT_KEY = 'crt_filter_enabled';
+        const crtEl = document.getElementById('crtFilter');
+        const crtToggle = document.getElementById('crtToggle');
+
+        function setCRT(enabled) {
+            crtEl.classList.toggle('on', enabled);
+            document.body.classList.toggle('crt-on', enabled);
+            crtToggle.textContent = enabled ? 'CRT ON' : 'CRT OFF';
+            crtToggle.classList.toggle('active', enabled);
+            try { localStorage.setItem(CRT_KEY, enabled ? '1' : '0'); } catch (e) {}
+        }
+
+        crtToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setCRT(!crtEl.classList.contains('on'));
+        });
+
+        setCRT(localStorage.getItem(CRT_KEY) !== '0');
+        console.log('📺 CRT 滤镜已就绪。右上角按钮可切换。');
+
+        // =================================================================
+        //  🆕 返回主页按钮（可拖动，位置记忆，双击复位）
+        // =================================================================
+        const HOME_URL = '../../index.html';        // ← 若路径不同请修改
+        const BACK_POS_KEY = 'back_btn_pos_v1';     // 与其他页面共享的位置存储键
+        const BACK_DEFAULT = { x: 14, y: 14 };      // 默认位置：距左、距上（px）
+
+        const backBtn = document.getElementById('backBtn');
+
+        function applyBackPos(x, y) {
+            backBtn.style.left = x + 'px';
+            backBtn.style.top = y + 'px';
+            backBtn.style.right = 'auto';
+            backBtn.style.bottom = 'auto';
+        }
+
+        // 从 localStorage 恢复位置
+        (function restoreBackPos() {
+            let pos = null;
+            try {
+                const raw = localStorage.getItem(BACK_POS_KEY);
+                if (raw) pos = JSON.parse(raw);
+            } catch (e) {}
+            if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+                const maxX = window.innerWidth - 100;
+                const maxY = window.innerHeight - 40;
+                applyBackPos(Math.max(0, Math.min(maxX, pos.x)), Math.max(0, Math.min(maxY, pos.y)));
+            } else {
+                applyBackPos(BACK_DEFAULT.x, BACK_DEFAULT.y);
+            }
+        })();
+
+        // ---------- 拖动逻辑 ----------
+        let isDragging = false;
+        let dragOffsetX = 0, dragOffsetY = 0;
+        let startX = 0, startY = 0;
+        let hasMoved = false;
+
+        function beginDrag(clientX, clientY) {
+            const rect = backBtn.getBoundingClientRect();
+            dragOffsetX = clientX - rect.left;
+            dragOffsetY = clientY - rect.top;
+            startX = clientX;
+            startY = clientY;
+            hasMoved = false;
+            isDragging = true;
+            backBtn.classList.add('dragging');
+        }
+
+        function moveDrag(clientX, clientY) {
+            if (!isDragging) return;
+            const dx = clientX - startX;
+            const dy = clientY - startY;
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
+            let newLeft = clientX - dragOffsetX;
+            let newTop = clientY - dragOffsetY;
+            const maxX = window.innerWidth - backBtn.offsetWidth;
+            const maxY = window.innerHeight - backBtn.offsetHeight;
+            newLeft = Math.max(0, Math.min(maxX, newLeft));
+            newTop = Math.max(0, Math.min(maxY, newTop));
+            applyBackPos(newLeft, newTop);
+        }
+
+        function endDrag() {
+            if (!isDragging) return;
+            isDragging = false;
+            backBtn.classList.remove('dragging');
+            if (hasMoved) {
+                const rect = backBtn.getBoundingClientRect();
+                try {
+                    localStorage.setItem(BACK_POS_KEY, JSON.stringify({ x: rect.left, y: rect.top }));
+                } catch (e) {}
+            }
+        }
+
+        // 鼠标事件
+        backBtn.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            beginDrag(e.clientX, e.clientY);
+        });
+        document.addEventListener('mousemove', (e) => { if (isDragging) moveDrag(e.clientX, e.clientY); });
+        document.addEventListener('mouseup', () => { if (isDragging) endDrag(); });
+
+        // 触屏事件
+        backBtn.addEventListener('touchstart', (e) => {
+            const t = e.touches[0];
+            beginDrag(t.clientX, t.clientY);
+        }, { passive: true });
+        document.addEventListener('touchmove', (e) => {
+            if (isDragging) {
+                const t = e.touches[0];
+                moveDrag(t.clientX, t.clientY);
+            }
+        }, { passive: true });
+        document.addEventListener('touchend', () => { if (isDragging) endDrag(); });
+
+        // ---------- 点击返回（拖动过则不触发）----------
+        function goHome() {
+            // 暂停所有进行中的操作，释放资源
+            try {
+                if (typeof stopAutoPlay === 'function') stopAutoPlay();
+                if (autoPlayTimer) { clearTimeout(autoPlayTimer); autoPlayTimer = null; }
+            } catch (err) { /* 忽略 */ }
+
+            // 尝试关闭当前标签页（若是被 window.open 打开，则能成功）
+            try { window.close(); } catch (err) { /* 忽略 */ }
+
+            // 若关闭失败，则延迟跳转回主页
+            // （如果 close 成功，下面的代码不会执行）
+            setTimeout(() => {
+                window.location.replace(HOME_URL);
+            }, 200);
+        }
+
+        backBtn.addEventListener('click', (e) => {
+            if (hasMoved) {
+                e.preventDefault();
+                e.stopPropagation();
+                hasMoved = false;
+                return;
+            }
+            e.stopPropagation();
+            goHome();
+        });
+
+        // ---------- 双击复位到默认位置 ----------
+        backBtn.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            try { localStorage.removeItem(BACK_POS_KEY); } catch (err) {}
+            applyBackPos(BACK_DEFAULT.x, BACK_DEFAULT.y);
+        });
+
+        // ---------- Esc 也能返回 ----------
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' &&
+                document.activeElement?.tagName !== 'INPUT' &&
+                document.activeElement?.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                goHome();
+            }
+        });
+
+        // ---------- 窗口变化时确保按钮不越界 ----------
+        window.addEventListener('resize', () => {
+            const rect = backBtn.getBoundingClientRect();
+            const maxX = window.innerWidth - backBtn.offsetWidth;
+            const maxY = window.innerHeight - backBtn.offsetHeight;
+            const newX = Math.max(0, Math.min(maxX, rect.left));
+            const newY = Math.max(0, Math.min(maxY, rect.top));
+            if (newX !== rect.left || newY !== rect.top) applyBackPos(newX, newY);
+        });
+
+        console.log('🏠 返回按钮已就绪：拖动移动，双击复位，位置自动保存。');
+    </script>
+</body>
+</html>
