@@ -1,0 +1,2821 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page-node-id="6i72BufAoLZqmPC4UnrJN2">
+<head data-page-node-id="DG3fpqauMblMED6KX3tXnt">
+    <meta charset="UTF-8" data-page-node-id="Dyf5qlyE64rLiWBzZngASI" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" data-page-node-id="3OeQUHU5XSZElwymWTsezZ" />
+    <title>故事碎片 · 播放器</title>
+    <style>
+        /* ---------- 基础样式（与您原文件一致） ---------- */
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        /* 全局基准字号：整页排版以 rem 为主，调这一行即可整体缩放 UI */
+        html { font-size: 17.5px; }
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            background-color: #0a0a0a;
+            background-image: linear-gradient(180deg, #101010 0%, #0a0a0a 55%, #080808 100%);
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            font-family: 'Courier New', Courier, monospace;
+            padding: 20px;
+        }
+        .rough-card {
+            max-width: 1100px;
+            width: 100%;
+            margin: auto;
+            padding: 34px 30px 38px;
+            background: #111111;
+            background-image: linear-gradient(180deg, rgba(158,176,196,0.045) 0%, rgba(0,0,0,0) 46%);
+            border: 2px solid #2a2a2a;
+            border-radius: 8px;
+            box-shadow: 0 8px 0 #1a1a1a, 0 16px 44px rgba(0,0,0,0.8), 0 0 26px rgba(188,196,204,0.04), inset 0 1px 0 rgba(255,255,255,0.035), inset 0 -40px 70px rgba(0,0,0,0.18);
+            position: relative;
+            /* 问询态切换时内边距（34/38 ↔ 26/28）也平滑收放，和对话区/舞台同步 */
+            transition: padding .42s cubic-bezier(0.4,0,0.2,1);
+        }
+        .rough-card::after {
+            content: '';
+            position: absolute;
+            top: -4px; left: -4px; right: -4px; bottom: -4px;
+            border: 1px dashed #2a2a2a; border-radius: 10px;
+            pointer-events: none;
+            opacity: 0.3;
+        }
+        .title {
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 400;
+            letter-spacing: 2px;
+            color: #c0b8a8;
+            text-shadow: 0 0 6px rgba(200,180,150,0.1);
+            border-bottom: 1px solid #2a2a2a;
+            padding-bottom: 10px;
+            margin-bottom: 4px;
+        }
+        .title span { margin-right: 8px; font-size: 1.8rem; }
+        .sub-hint {
+            text-align: center;
+            color: #5a5a5a;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            padding-bottom: 12px;
+            border-bottom: 1px dashed #222;
+            margin-bottom: 16px;
+        }
+        .sub-hint .progress { color: #7a7a6a; }
+
+        .stage {
+            display: flex;
+            gap: 20px;
+            min-height: min(520px, 58vh);
+            align-items: stretch;
+            /* 问询态切换时舞台最小高度（40vh ↔ 58vh）平滑过渡，和对话区同步收放 */
+            transition: min-height .42s cubic-bezier(0.4,0,0.2,1);
+        }
+        .role-column {
+            flex: 0 0 178px;
+            background: #0d0d0d;
+            border: 2px solid #222;
+            padding: 10px 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 2px 12px rgba(0,0,0,0.7);
+            position: relative;
+            overflow: hidden;
+            min-height: 200px;
+        }
+        .role-column.left-column { border-right: 3px solid #2a1f1a; }
+        .role-column.right-column { border-left: 3px solid #1a222a; }
+
+        .avatar-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            min-height: 200px;
+        }
+        .role-item {
+            position: absolute;
+            left: 50%;
+            transform: translateX(-50%) translateY(0px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.6s cubic-bezier(0.34,1.2,0.64,1),
+                        opacity 0.4s ease;
+            will-change: transform;
+            padding: 4px 0;
+            width: auto;
+        }
+        .role-item .avatar-wrap {
+            width: 108px;
+            height: 108px;
+            border: 3px solid #333;
+            border-radius: 2px;
+            overflow: hidden;
+            background: #0a0a0a;
+            transition: border-color 0.4s, box-shadow 0.4s, transform 0.4s,
+                        opacity 0.4s, filter 0.4s, width 0.42s cubic-bezier(0.4,0,0.2,1),
+                        height 0.42s cubic-bezier(0.4,0,0.2,1);
+            box-shadow: 0 0 12px rgba(0,0,0,0.6);
+            flex-shrink: 0;
+            position: relative;
+            opacity: 0.5;
+            filter: grayscale(0.6);
+        }
+        .role-item .avatar-wrap img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            image-rendering: pixelated;
+        }
+        .role-item .avatar-wrap .placeholder-avatar {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #5a4a3a;
+            font-size: 1.5rem;
+            background: #2a1a1a;
+        }
+        .role-item .role-name {
+            font-size: 0.85rem;
+            letter-spacing: 1px;
+            margin-top: 4px;
+            color: #6a6a5a;
+            transition: color 0.4s;
+            text-align: center;
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            line-height: 1.2;
+            white-space: nowrap;
+        }
+        .role-item.active .avatar-wrap {
+            border-color: #8a7a6a;
+            box-shadow: 0 0 28px rgba(120,100,80,0.3);
+            transform: scale(1.10);
+            opacity: 1;
+            filter: grayscale(0);
+        }
+        .role-item.active .role-name { color: #d0c0a8; }
+
+        .dialogue-wrap {
+            flex: 1;
+            background: #0a0a0a;
+            border: 2px solid #222;
+            border-bottom: none;
+            padding: 18px 22px;
+            min-height: min(340px, 34vh);
+            max-height: min(520px, 58vh);
+            /* 问询态切换时对话区高度（40vh ↔ 58vh）平滑涨回，避免收起时"卡一下再跳变" */
+            transition: max-height .42s cubic-bezier(0.4,0,0.2,1);
+            overflow-y: auto;
+            overflow-x: hidden;          /* 右侧气泡贴边时不再冒出横向滚动条 */
+            scrollbar-gutter: stable;    /* 竖向滚动条出现/消失时不再挤压内容宽度 */
+            box-shadow: inset 0 2px 12px rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            scroll-behavior: smooth;
+            position: relative;
+        }
+        /* 滚动条平时隐形（只靠 scrollbar-gutter 预留空隙，不挤压内容），悬停对话区才显出，
+           这样回答完提问、内容变长导致滚动条出现时也不会在右侧凭空露出一条，影响美观 */
+        .dialogue-wrap::-webkit-scrollbar { width: 6px; }
+        .dialogue-wrap::-webkit-scrollbar-track { background: transparent; }
+        .dialogue-wrap::-webkit-scrollbar-thumb {
+            background: transparent;
+            border-radius: 3px;
+            transition: background .25s ease;
+        }
+        .dialogue-wrap:hover::-webkit-scrollbar-thumb { background: #3a3a3a; }
+        .dialogue-wrap::-webkit-scrollbar-thumb:hover { background: #555; }
+        .dialogue-empty {
+            color: #3a3a3a;
+            font-style: italic;
+            font-size: 1rem;
+            text-align: center;
+            margin: auto;
+            letter-spacing: 1px;
+        }
+
+        .msg-item {
+            display: flex;
+            flex-direction: column;
+            max-width: 84%;
+            padding: 13px 20px;
+            border: 2px solid #2a2a2a;
+            background: #111;
+            box-shadow: 0 2px 0 #1a1a1a;
+            opacity: 0;
+            transform: scale(0.7) rotate(var(--rot,0deg));
+            transform-origin: var(--origin, center);
+            animation: msgPopIn 0.45s cubic-bezier(0.22,0.9,0.36,1.1) forwards;
+            word-break: break-word;
+            line-height: 1.6;
+            font-size: 1.08rem;
+            color: #b8b0a0;
+            border-left-width: 4px;
+            border-right-width: 4px;
+        }
+        .msg-item .msg-speaker {
+            font-size: 0.9rem;
+            letter-spacing: 1px;
+            font-weight: 600;
+            margin-bottom: 2px;
+            opacity: 0.8;
+        }
+        .msg-item .msg-text { font-size: 1.25rem; line-height: 1.65; }
+        .msg-item .msg-image {
+            margin-top: 10px;
+            border: 1px solid #2a2a2a;
+            border-radius: 4px;
+            overflow: hidden;
+            background: #0a0a0a;
+            line-height: 0;
+            position: relative;
+        }
+        .msg-item .msg-image img {
+            width: 100%;
+            height: auto;
+            max-height: 400px;
+            object-fit: contain;
+            display: block;
+            background: #0a0a0a;
+            transition: opacity 0.3s ease;
+        }
+        .msg-item .msg-image .img-placeholder {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 80px;
+            color: #5a5a5a;
+            font-size: 0.8rem;
+            background: #141414;
+            padding: 16px;
+            font-style: italic;
+            letter-spacing: 0.5px;
+        }
+        .msg-item .msg-image .img-placeholder .icon { margin-right: 8px; font-size: 1.2rem; opacity: 0.5; }
+
+        .msg-item.from-left {
+            align-self: flex-start;
+            border-left-color: #b05a3a;
+            --origin: left center;
+            --rot: -3deg;
+            animation-name: msgPopInLeft;
+        }
+        .msg-item.from-left .msg-speaker { text-align: left; }
+        .msg-item.from-right {
+            align-self: flex-end;
+            border-right-color: #3a7a9a;
+            --origin: right center;
+            --rot: 3deg;
+            animation-name: msgPopInRight;
+        }
+        .msg-item.from-right .msg-speaker { text-align: right; }
+        .msg-item.no-anim { animation: none !important; opacity: 1 !important; transform: none !important; }
+
+        @keyframes msgPopInLeft {
+            0% { opacity:0; transform: translateX(-40px) scale(0.7) rotate(-3deg); }
+            60% { opacity:1; transform: translateX(8px) scale(1.02) rotate(1deg); }
+            100% { opacity:1; transform: translateX(0) scale(1) rotate(0deg); }
+        }
+        @keyframes msgPopInRight {
+            0% { opacity:0; transform: translateX(40px) scale(0.7) rotate(3deg); }
+            60% { opacity:1; transform: translateX(-8px) scale(1.02) rotate(-1deg); }
+            100% { opacity:1; transform: translateX(0) scale(1) rotate(0deg); }
+        }
+
+        .controls-row {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 22px;
+            margin-top: 18px;
+            padding-top: 16px;
+            border-top: 1px dashed #222;
+            flex-wrap: wrap;
+            /* 问询展开时整条收起：靠 max-height + opacity + 间距一起过渡。
+               注意必须常驻 DOM 只改 max-height，不能用 display:none —— display 变化不参与过渡。 */
+            max-height: 110px;   // 贴近实际高度即可；设太大动画前半段会看不到变化
+            overflow: hidden;
+            opacity: 1;
+            transition: max-height .42s cubic-bezier(0.4,0,0.2,1),
+                        opacity .3s ease,
+                        margin-top .42s cubic-bezier(0.4,0,0.2,1),
+                        padding-top .42s cubic-bezier(0.4,0,0.2,1);
+        }
+        .controls-row.stowed {
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+            padding-top: 0;
+            border-top-color: transparent;
+            pointer-events: none;
+        }
+        .controls-row button {
+            background: #1a1a1a;
+            border: 2px solid #444;
+            color: #b0a898;
+            padding: 13px 30px;
+            font-size: 1.08rem;
+            cursor: pointer;
+            transition: 0.15s;
+            font-family: 'Courier New', monospace;
+            letter-spacing: 1px;
+            box-shadow: 0 4px 0 #0a0a0a;
+        }
+        .controls-row button:hover {
+            background: #222;
+            border-color: #666;
+            color: #d0c8b8;
+        }
+        .controls-row button:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #0a0a0a;
+        }
+        .controls-row button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: 0 4px 0 #0a0a0a;
+        }
+        .controls-row .btn-continue { min-width: 100px; }
+        .controls-row .btn-skip { border-color: #3a4a3a; color: #8aaa8a; }
+        .controls-row .btn-skip:hover { border-color: #5a7a5a; color: #aacaaa; }
+        .controls-row .btn-auto {
+            border-color: #4a3a3a;
+            color: #b08a7a;
+            min-width: 120px;
+        }
+        .controls-row .btn-auto:hover { border-color: #6a4a3a; color: #d0aa8a; }
+        .controls-row .btn-auto.playing { border-color: #6a5a3a; color: #d0b08a; background: #1e1a14; }
+        .controls-row .btn-auto.paused { border-color: #4a5a3a; color: #8aaa7a; background: #141a14; }
+        .controls-row .btn-auto.completed { border-color: #3a4a3a; color: #5a7a5a; }
+        .controls-row .btn-reset {
+            border: 1px solid #333;
+            color: #5a5a5a;
+            font-size: 0.9rem;
+            padding: 8px 24px;
+        }
+        .controls-row .btn-reset:hover { border-color: #5a3a3a; color: #8a6a6a; }
+        .controls-row .step-indicator {
+            color: #5a5a5a;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+            font-family: 'Courier New', monospace;
+            min-width: 80px;
+            text-align: center;
+        }
+        .controls-row .step-indicator em { color: #8a7a6a; font-style: normal; }
+
+        @media (max-width:720px) {
+            .rough-card { padding: 16px 12px 20px; }
+            .rough-card::after { top: -4px; left: -4px; right: -4px; bottom: -4px; }
+            .title { font-size:1.4rem; }
+            .stage { flex-direction:column; gap:12px; min-height:auto; }
+            .role-column {
+                flex:0 0 auto;
+                flex-direction:row;
+                justify-content:center;
+                padding:8px 4px;
+                min-height:90px;
+                border:2px solid #222;
+            }
+            .role-column.left-column { border-right:2px solid #222; border-left:4px solid #b05a3a; }
+            .role-column.right-column { border-left:2px solid #222; border-right:4px solid #3a7a9a; }
+            .avatar-container {
+                display:flex;
+                flex-direction:row;
+                flex-wrap:wrap;
+                justify-content:center;
+                gap:6px;
+                padding:2px 0;
+                min-height:unset;
+                height:auto;
+            }
+            .role-item {
+                position:static !important;
+                transform:none !important;
+                padding:2px 4px;
+                flex-shrink:0;
+                transition:none;
+                width:auto;
+            }
+            .role-item .avatar-wrap { width:48px; height:48px; opacity:0.5; filter:grayscale(0.6); }
+            .role-item.active .avatar-wrap { opacity:1; filter:grayscale(0); }
+            .role-item .role-name { font-size:0.5rem; margin-top:2px; }
+            .dialogue-wrap { max-height:320px; min-height:180px; padding:10px 12px; border-bottom:none; }
+            .msg-item { max-width:92%; font-size:0.85rem; padding:8px 12px; }
+            .msg-item .msg-image img { max-height:180px; }
+            .controls-row { gap:10px; }
+            .controls-row button { padding:8px 16px; font-size:0.8rem; }
+            .controls-row .btn-continue { padding:8px 20px; }
+            .controls-row .btn-auto { min-width:100px; }
+            .controls-row .step-indicator { font-size:0.7rem; min-width:60px; }
+        }
+        @media (max-width:460px) {
+            .role-item .avatar-wrap { width:40px; height:40px; }
+            .dialogue-wrap { max-height:240px; min-height:140px; padding:6px 8px; gap:8px; }
+            .msg-item { font-size:0.75rem; padding:6px 10px; max-width:96%; }
+            .msg-item .msg-speaker { font-size:0.6rem; }
+            .msg-item .msg-image img { max-height:120px; }
+            .controls-row button { padding:6px 12px; font-size:0.7rem; }
+            .controls-row .btn-continue { padding:6px 14px; }
+            .controls-row .btn-auto { min-width:80px; }
+            .title { font-size:1.2rem; }
+            .sub-hint { font-size:0.65rem; }
+            .role-column { min-height:70px; }
+        }
+
+        /* ================= CRT 复古滤镜 ================= */
+        .crt { position: fixed; inset: 0; pointer-events: none; z-index: 999998; opacity: 0; transition: opacity .45s ease; overflow: hidden; }
+        .crt.on { opacity: 1; }
+
+        .crt-scanlines {
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(
+                to bottom,
+                rgba(0,0,0,0) 0px,
+                rgba(0,0,0,0) 2px,
+                rgba(0,0,0,0.32) 3px,
+                rgba(0,0,0,0.32) 4px
+            );
+            animation: crtJitter 7s linear infinite;
+        }
+        @keyframes crtJitter { 0% { transform: translateY(0); } 100% { transform: translateY(4px); } }
+
+        .crt-aperture {
+            position: absolute; inset: 0;
+            background: repeating-linear-gradient(
+                to right,
+                rgba(255,0,0,0.05) 0px,
+                rgba(0,255,0,0.05) 1px,
+                rgba(0,0,255,0.05) 2px,
+                rgba(0,0,0,0) 3px
+            );
+        }
+
+        .crt-vignette {
+            position: absolute; inset: 0;
+            background: radial-gradient(ellipse at center,
+                rgba(0,0,0,0) 44%,
+                rgba(0,0,0,0.28) 79%,
+                rgba(0,0,0,0.74) 100%);
+            box-shadow: inset 0 0 80px 26px rgba(0,0,0,0.55),
+                        inset 0 0 14px 2px rgba(140,200,255,0.06);
+        }
+
+        .crt-flicker {
+            position: absolute; inset: 0;
+            background: rgba(170,200,255,0.05);
+            mix-blend-mode: screen;
+            animation: crtFlicker .9s steps(6) infinite;
+        }
+        @keyframes crtFlicker {
+            0% { opacity: .02; } 20% { opacity: .07; } 40% { opacity: .03; }
+            60% { opacity: .09; } 80% { opacity: .04; } 100% { opacity: .02; }
+        }
+
+        .crt-beam {
+            position: absolute; left: 0; right: 0; height: 140px;
+            background: linear-gradient(to bottom,
+                rgba(200,225,255,0) 0%,
+                rgba(200,225,255,0.035) 40%,
+                rgba(210,235,255,0.075) 50%,
+                rgba(200,225,255,0.035) 60%,
+                rgba(200,225,255,0) 100%);
+            animation: crtBeam 7s linear infinite;
+        }
+        @keyframes crtBeam { 0% { top: -160px; } 100% { top: 100%; } }
+
+        .crt-noise {
+            position: absolute; inset: 0;
+            opacity: .035;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+            background-size: 140px 140px;
+            animation: crtNoiseShift .35s steps(3) infinite;
+        }
+        @keyframes crtNoiseShift {
+            0% { background-position: 0 0; }
+            33% { background-position: -30px 20px; }
+            66% { background-position: 25px -18px; }
+            100% { background-position: 0 0; }
+        }
+
+        body.crt-on .rough-card,
+        body.crt-on .msg-item,
+        body.crt-on .role-item .role-name {
+            text-shadow: 0.5px 0 rgba(255,70,70,.35), -0.5px 0 rgba(70,220,255,.35);
+        }
+        body.crt-on .rough-card {
+            box-shadow: 0 8px 0 #1a1a1a, 0 16px 44px rgba(0,0,0,0.85), 0 0 28px rgba(188,196,204,0.055), inset 0 1px 0 rgba(255,255,255,0.035), inset 0 -40px 70px rgba(0,0,0,0.2);
+        }
+        body.crt-on .role-item .avatar-wrap img {
+            filter: contrast(1.05) saturate(0.92);
+        }
+
+        /* ================= 通用悬浮按钮 ================= */
+        /* ================= 通用悬浮按钮 =================
+           注意：悬浮按钮（CRT 开关 / 返回主页）**自身不发光**——不要再给它们加 box-shadow 光晕或 text-shadow。
+           它们正好压在 CRT 暗角里，以前靠多层光晕硬顶，现在改成「实色底 + 亮描边 + 亮文字 + 不透明」的
+           纯对比度来保证看得见；发光一律交给 .crt 滤镜层统一处理。 */
+        .crt-toggle, .back-btn {
+            position: fixed; z-index: 999997;
+            background: #2e2e2a; border: 2px solid #b0b0a2; color: #ffffff; font-weight: 700;
+            padding: 10px 20px; font-family: 'Courier New', monospace;
+            font-size: 0.92rem; letter-spacing: 1px; cursor: pointer;
+            box-shadow: 0 3px 0 #101010, 0 6px 14px rgba(0,0,0,0.6);
+            transition: background .15s, border-color .15s, color .15s;
+            opacity: 1;
+        }
+        .crt-toggle:hover, .back-btn:hover { background: #3a3a36; border-color: #e0e0cd; color: #ffffff; }
+        .crt-toggle:active, .back-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #101010; }
+        /* CRT 开关：开关两态统一用绿色系（它控制的就是绿色磷光滤镜，视觉上更自洽）；
+           开态（active）比关态更亮一号，用来体现状态差异。返回按钮保持中性/暖色，不受影响。 */
+        .crt-toggle { border-color: #6f9670; color: #cdeacf; background: #20291f; }
+        .crt-toggle:hover { background: #26322a; border-color: #9ac79d; color: #ffffff; }
+        .crt-toggle.active, .crt-toggle.active:hover { border-color: #c8f0cb; color: #ffffff; background: #243528; }
+        .crt-toggle.active:hover { border-color: #e6ffe8; color: #ffffff; background: #2d4234; }
+
+        /* （老式电影放映模式已移除，恢复为纯 CRT 模式） */
+
+        .crt-toggle { top: 14px; right: 14px; }
+        .back-btn {
+            top: 14px; left: 14px;
+            cursor: grab;
+            user-select: none;
+            touch-action: none;
+        }
+        .back-btn:hover { border-color: #e8d9bd; color: #ffffff; background: #3a352c; }
+        .back-btn.dragging {
+            cursor: grabbing;
+            opacity: .9;
+            box-shadow: 0 3px 12px rgba(0,0,0,0.8);
+            transition: none;
+        }
+
+        /* ================= 开场演出：标题卡 ================= */
+        /* 注意：这里不能用 display:none → flex 来显隐。
+           display 变化不参与过渡，浏览器会直接以最终状态渲染，opacity 的淡入淡出就永远跑不出来。
+           所以元素常驻 DOM（fixed，不影响布局），靠 visibility + opacity 做显隐，visibility 的 0s 延迟
+           保证"淡出播完才真正隐藏"。下面的时长与 JS 里的 TC_FADE_IN / TC_FADE_OUT 保持一致。 */
+        .title-card {
+            position: fixed; inset: 0; z-index: 999990;
+            display: flex; align-items: center; justify-content: center;
+            background: radial-gradient(ellipse at center, rgba(8,8,8,0.80) 0%, rgba(0,0,0,0.97) 72%);
+            font-family: 'Courier New', monospace;
+            cursor: pointer;
+            opacity: 0; visibility: hidden; pointer-events: none;
+            /* 淡出用这一条：opacity .6s，visibility 等淡出结束才切 hidden */
+            transition: opacity .6s ease, visibility 0s linear .6s;
+            user-select: none;
+        }
+        /* 淡入用这一条：opacity .45s，visibility 立刻可见 */
+        .title-card.show {
+            opacity: 1; visibility: visible; pointer-events: auto;
+            transition: opacity .45s ease, visibility 0s linear 0s;
+        }
+        /* 大字背后那条模糊横杠 */
+        .tc-bar {
+            position: absolute; left: 50%; top: 50%;
+            width: min(1200px, 94vw); height: 118px;
+            transform: translate(-50%, -50%) scaleX(0);
+            /* 背景辉光跟随大字颜色：--tc-bar-mid / --tc-bar-edge 由 JS 按 color 写入，
+               未配置时回落默认米白（与默认的 --tc-color #ded6c4 同源） */
+            background: linear-gradient(90deg,
+                rgba(0,0,0,0) 0%, var(--tc-bar-edge, rgba(150,140,120,0.20)) 16%,
+                var(--tc-bar-mid, rgba(214,204,184,0.34)) 50%, var(--tc-bar-edge, rgba(150,140,120,0.20)) 84%, rgba(0,0,0,0) 100%);
+            filter: blur(24px);
+            opacity: 0;
+            transition: transform .75s cubic-bezier(0.16,0.84,0.3,1), opacity .45s ease;
+        }
+        .title-card.show .tc-bar { transform: translate(-50%, -50%) scaleX(1); opacity: 1; }
+        /* 散场：横杠被撑开并淡掉 */
+        .title-card.disperse .tc-bar { transform: translate(-50%, -50%) scaleX(1.35); opacity: 0; transition: .6s ease; }
+        /* 爆开式：横杠也从中心 zoom 出来，跟着字一起"炸" */
+        .title-card.burst .tc-bar {
+            transform: translate(-50%, -50%) scale(0.12); opacity: 0;
+            transition: transform .5s cubic-bezier(0.18,0.9,0.32,1), opacity .4s ease;
+        }
+        .title-card.burst.show .tc-bar { transform: translate(-50%, -50%) scaleX(1); opacity: 1; }
+        .title-card.burst.disperse .tc-bar { transform: translate(-50%, -50%) scaleX(1.35) scaleY(0.35); opacity: 0; transition: .6s ease; }
+
+        .tc-stage { position: relative; text-align: center; padding: 0 4vw; }
+        /* --tc-color / --tc-glow 由 JS 按配置写入（未配置时用下面的默认米白） */
+        .tc-text {
+            font-size: clamp(2.2rem, 8.4vw, 6.4rem);
+            font-weight: 700; letter-spacing: 0.06em; line-height: 1.12;
+            color: var(--tc-color, #ded6c4); white-space: nowrap;
+            text-shadow: 0 0 34px var(--tc-glow, rgba(0,0,0,0.9)), 0 6px 0 rgba(0,0,0,0.55);
+        }
+        /* 每个字符单独一层：--fx 是它待命时所在的屏幕外方向，--d/--d2 是合拢/分散的错峰延迟 */
+        .tc-char {
+            display: inline-block; opacity: 0;
+            transform: translateX(var(--fx, 0px)) scale(1.08);
+            transition: transform .62s cubic-bezier(0.16,0.84,0.3,1), opacity .42s ease;
+        }
+        .title-card.assemble .tc-char { opacity: 1; transform: translateX(0) scale(1); transition-delay: var(--d, 0ms); }
+        .title-card.disperse .tc-char { opacity: 0; transform: translateX(var(--fx, 0px)) scale(1.08); transition-delay: var(--d2, 0ms); transition-duration: .5s; }
+
+        /* 爆开式（回答成功等）：每个字先缩在中心、带扇形角度，再从中心炸开回到横排原位。
+           --bx / --by 是 JS 测出的"该字最终位置相对文本中心的偏移"，待命态乘以 -1 把字拉回正中心，
+           --ang 是它待命时的旋转角（按离中心远近张开成扇形）。 */
+        /* burst：从正中心像开花一样旋转绽开，再排成横排 */
+        .title-card.burst .tc-char {
+            opacity: 0;
+            /* 待命态：所有字缩在正中心拧成"花苞"，按离中心远近带上扇形旋转角 */
+            transform: translate(calc(var(--bx, 0px) * -1), var(--by, 0px)) rotate(var(--ang, 0deg)) scale(0.06);
+            transform-origin: center center;
+            transition: transform .78s cubic-bezier(0.22, 1.32, 0.34, 1), opacity .42s ease;
+        }
+        .title-card.burst.assemble .tc-char {
+            opacity: 1;
+            /* 绽开：旋转归正 + 放大归位，弹簧曲线带一点过冲，像花瓣"啪"地张开 */
+            transform: translate(0, 0) rotate(0deg) scale(1);
+            transition-delay: var(--d, 0ms);
+        }
+        .title-card.burst.disperse .tc-char {
+            opacity: 0;
+            /* 散场：像花合拢一样轻轻往回收、反向拧一点再淡出 */
+            transform: translate(calc(var(--bx, 0px) * -0.5), calc(var(--by, 0px) * 0.5)) rotate(calc(var(--ang, 0deg) * -0.6)) scale(0.55);
+            transition-delay: var(--d2, 0ms);
+            transition-duration: .52s;
+        }
+
+        .tc-sub {
+            margin-top: 20px; color: #8a8272;
+            font-size: clamp(0.7rem, 1.6vw, 1rem); letter-spacing: 0.36em;
+            opacity: 0; transform: translateY(10px);
+            transition: opacity .5s ease, transform .5s ease;
+        }
+        .title-card.assemble .tc-sub { opacity: 0.9; transform: translateY(0); transition-delay: .55s; }
+        .title-card.disperse .tc-sub { opacity: 0; transition: opacity .35s ease; transition-delay: 0s; }
+
+        .tc-hint {
+            position: absolute; bottom: 7vh; left: 0; right: 0; text-align: center;
+            color: #5a5a5a; font-size: 0.8rem; letter-spacing: 0.2em;
+            opacity: 0; transition: opacity .5s ease;
+        }
+        .title-card.assemble .tc-hint { opacity: 0.7; transition-delay: 1.1s; }
+        .title-card.disperse .tc-hint { opacity: 0; transition: opacity .3s; transition-delay: 0s; }
+
+        /* 演出期间锁住故事界面：卡片整体不吃鼠标事件（键盘由 JS 守卫挡） */
+        .rough-card.tc-locked { pointer-events: none; }
+        body.crt-on .tc-text {
+            text-shadow: 0.5px 0 rgba(255,70,70,0.40), -0.5px 0 rgba(70,220,255,0.40),
+                         0 0 34px var(--tc-glow, rgba(0,0,0,0.9)), 0 6px 0 rgba(0,0,0,0.55);
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .crt-flicker, .crt-beam, .crt-noise, .crt-scanlines { animation: none !important; }
+            .tc-bar, .tc-char, .tc-sub, .tc-hint { transition-duration: .12s !important; }
+            /* 黑幕淡入淡出也压短；visibility 的 delay 保留，不影响 JS 的收尾定时器（它只会更晚） */
+            .title-card, .title-card.show { transition-duration: .12s !important; }
+            /* 问询面板展开 / 底部控制条收放也压短；JS 的兜底定时器按正常节奏走，只会更晚、不会卡住 */
+            .ask-panel, .controls-row { transition-duration: .12s !important; }
+        }
+        /* 拼错的那一轮：留在对话里当线索，但视觉上作废，让玩家看清"这条路没成立"。
+           注意这些台词正是玩家推断的依据，所以只做轻度虚化 + 虚线框，不加删除线、不压太暗。 */
+        .msg-item.branch-dead {
+            opacity: 0.72;
+            filter: grayscale(0.55);
+            border-left-style: dashed !important;
+            border-right-style: dashed !important;
+            border-left-color: #4a3a3a !important;
+            border-right-color: #4a3a3a !important;
+        }
+        .msg-item.branch-dead .msg-speaker::after { content: ' ·未成立'; color: #8a6464; font-size: 0.9em; }
+
+        /* ================= 问询面板：拼词组 ================= */
+        /* 展开用 transition 而不是 keyframes：".open 上挂 animation" 会和 .shake 打架 ——
+           移除 shake 后 animation-name 落回展开动画，导致每次拼错都重播一遍展开。
+           另外元素常驻 DOM，靠 max-height/内边距收起，绝不能走 display:none ↔ block
+           （display 变化不参与过渡，动画会整个被跳过）。 */
+        .ask-panel {
+            overflow: hidden;
+            max-height: 0;
+            opacity: 0;
+            margin-top: 0;
+            padding: 0 18px;
+            border-left: 2px solid #3a3428;
+            border-right: 2px solid #3a3428;
+            border-top: 0px solid #3a3428;
+            border-bottom: 0px solid #3a3428;
+            background: #0d0d0d;
+            box-shadow: inset 0 2px 14px rgba(0,0,0,0.9);
+            pointer-events: none;
+            transition: max-height .42s cubic-bezier(0.4,0,0.2,1),
+                        opacity .28s ease,
+                        margin-top .42s cubic-bezier(0.4,0,0.2,1),
+                        padding .42s cubic-bezier(0.4,0,0.2,1),
+                        border-width .42s cubic-bezier(0.4,0,0.2,1);
+        }
+        .ask-panel.open {
+            max-height: 520px;   /* 略大于实际高度，动画前段就是有效的；JS 展开完会解成 none 防裁 */
+            opacity: 1;
+            margin-top: 16px;
+            padding: 16px 18px 18px;
+            border-top-width: 2px;
+            border-bottom-width: 2px;
+            pointer-events: auto;
+        }
+        .ask-panel.shake { animation: askShake .3s ease; }
+        @keyframes askShake {
+            0%,100% { transform: translateX(0); } 25% { transform: translateX(-7px); }
+            50% { transform: translateX(7px); } 75% { transform: translateX(-4px); }
+        }
+        .ask-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; color: #8a8272; font-size: 0.84rem; letter-spacing: 0.1em; }
+        .ask-badge { background: #2a2418; border: 1px solid #5a4a2a; color: #c9a227; padding: 2px 10px; font-size: 0.76rem; }
+        .ask-seen { margin-left: auto; color: #5a5a4a; font-size: 0.76rem; }
+        .ask-sentence { color: #c8c0b0; font-size: 1.15rem; line-height: 2.2; margin-bottom: 14px; }
+        .ask-slot {
+            display: inline-block; min-width: 8.5em; padding: 4px 12px; margin: 0 4px;
+            vertical-align: middle; text-align: center;
+            border: 1px dashed #5a5340; background: #141414; color: #ded6c4;
+            cursor: pointer; transition: 0.15s;
+        }
+        .ask-slot.empty { color: transparent; }
+        .ask-slot.empty::after { content: '？'; color: #5a5340; }
+        .ask-slot.filled { border-style: solid; border-color: #7a6a3a; background: #1a1710; }
+        .ask-slot.hover { border-color: #c9a227; background: #241f12; }
+        .ask-slot.pickable { border-color: #6a8a4a; }
+        .ask-words {
+            display: flex; flex-wrap: wrap; gap: 10px;
+            padding: 12px 10px; border-top: 1px dashed #2a2a2a; min-height: 52px;
+        }
+        .ask-word {
+            padding: 7px 15px; background: #1a1a1a; border: 1px solid #444; color: #b8b0a0;
+            font-size: 0.95rem; font-family: 'Courier New', monospace;
+            cursor: grab; user-select: none; transition: 0.12s;
+        }
+        .ask-word:hover { border-color: #777; background: #222; }
+        .ask-word.picked { border-color: #c9a227; color: #e8d9a0; background: #241f12; box-shadow: 0 0 14px rgba(201,162,39,0.18); }
+        .ask-word.dragging { opacity: 0.4; }
+        .ask-actions { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 14px; }
+        .ask-actions-left { display: flex; gap: 12px; }
+        .ask-btn {
+            background: #1a1a1a; border: 2px solid #5a4a2a; color: #c9a227;
+            padding: 9px 26px; font-size: 0.95rem; font-family: 'Courier New', monospace;
+            cursor: pointer; transition: 0.15s;
+        }
+        .ask-btn:hover { background: #241f12; border-color: #8a6a2a; }
+        .ask-btn.ghost { border-color: #333; color: #7a7a6a; }
+        .ask-btn.ghost:hover { border-color: #555; color: #a8a898; background: #222; }
+        body.crt-on .ask-slot.filled, body.crt-on .ask-word.picked {
+            text-shadow: 0.5px 0 rgba(255,70,70,0.30), -0.5px 0 rgba(70,220,255,0.30);
+        }
+        /* 问询态：面板一展开就压缩对话区，保证整张卡片仍然塞得进视口（不用滚动）。
+           头像尺寸不变 —— 靠 JS 把两侧头像「成组居中」（见 layoutContainer），
+           这样 2 个头像只需 2 倍行高的空间，不会被裁掉。 */
+        /* 舞台至少要放得下 2 个头像（2 × 行高≈138 + 内边距），所以这里给到 300 */
+        .rough-card.asking .stage { min-height: min(300px, 40vh); }
+        .rough-card.asking .dialogue-wrap { min-height: min(160px, 18vh); max-height: min(300px, 40vh); }
+        .rough-card.asking .ask-sentence { font-size: 1.08rem; line-height: 2; }
+        .rough-card.asking .role-item .avatar-wrap { width: 90px; height: 90px; }
+        .rough-card.asking .role-item .role-name { font-size: 0.78rem; }
+        .rough-card.asking { padding: 26px 30px 28px; }
+        /* 矮屏再收一档 */
+        @media (max-height: 820px) {
+            body { padding: 10px; }
+            .rough-card.asking .stage { min-height: min(300px, 35vh); }
+            .rough-card.asking .dialogue-wrap { max-height: min(300px, 35vh); }
+            .rough-card.asking { padding: 20px 24px 22px; }
+            .rough-card.asking .dialogue-wrap { min-height: 140px; }
+            .rough-card.asking .ask-panel { padding: 12px 14px 14px; margin-top: 8px; }
+            .rough-card.asking .ask-head { margin-bottom: 8px; }
+            .rough-card.asking .ask-sentence { font-size: 1rem; line-height: 1.85; margin-bottom: 10px; }
+            .rough-card.asking .ask-words { padding: 10px 8px; min-height: 42px; }
+            .rough-card.asking .ask-actions { margin-top: 10px; }
+        }
+
+    </style>
+</head>
+<body data-page-node-id="eGamGa7KJ03upFlu01DP17">
+    <div class="rough-card" id="app" data-page-node-id="MrS92MJrCOMFN3Ec8ppwSV">
+        <div class="title" data-page-node-id="qjKBDYxisvZ3RFKvOkF3GE"><span data-page-node-id="LZNMEkHE9uV0qdLH7WlQhV">📜</span> <span id="storyTitle" data-page-node-id="POqbRJWZYlEoBdo56A9A3I">故事碎片</span></div>
+        <div class="sub-hint" data-page-node-id="wazeGiolb13FGbu1PWSF9Z">
+            <span class="progress" id="progressHint" data-page-node-id="0dQRwrtUZJQ2Db0vURc3cT">点击「继续」推进 · 共 <em id="totalCount" data-page-node-id="csWfG0Ba8L3KSVdiGvOSQS">0</em> 句</span>
+        </div>
+
+        <div class="stage" data-page-node-id="2Kxf7XonAWhOGM735ZyIbE">
+            <div class="role-column left-column" id="leftColumn" data-page-node-id="uCSlPunN1zx9td5BH5MIfp">
+                <div class="avatar-container" id="leftContainer" data-page-node-id="3YnOzo5AbHlOqGOPNxELOy"></div>
+            </div>
+            <div class="dialogue-wrap" id="dialogueWrap" data-page-node-id="ibUyRabHhnvLCwFyIHX9LO">
+                <div class="dialogue-empty" id="dialogueEmpty" data-page-node-id="0ZfIkrklGaJNsaVMQIhpx9">💬 点击「继续」开始阅读……</div>
+            </div>
+            <div class="role-column right-column" id="rightColumn" data-page-node-id="5DQHZimdu6gAtZC1LuhXeC">
+                <div class="avatar-container" id="rightContainer" data-page-node-id="MbDetSZzAHLxrDMf9tnPvH"></div>
+            </div>
+        </div>
+
+        <!-- ================= 问询面板（拼词组） ================= -->
+        <div class="ask-panel" id="askPanel">
+            <div class="ask-head">
+                <span class="ask-badge">思考</span>
+                <span class="ask-label">把此刻的判断拼出来</span>
+                <span class="ask-seen" id="askSeen"></span>
+            </div>
+            <div class="ask-sentence" id="askSentence"></div>
+            <div class="ask-words" id="askWords"></div>
+            <div class="ask-actions">
+                <div class="ask-actions-left">
+                    <button class="ask-btn ghost" id="askRefresh">刷新页面</button>
+                    <button class="ask-btn ghost" id="askClear">清空</button>
+                </div>
+                <button class="ask-btn" id="askConfirm">就这样问</button>
+            </div>
+        </div>
+
+        <div class="controls-row" id="controlsRow" data-page-node-id="CufDzBoPz1Shn4QdH4EGz5">
+            <button class="btn-continue" id="btnContinue" data-page-node-id="tYy2859M7QvfnMW3lIMg9B">▶ 继续</button>
+            <button class="btn-skip" id="btnSkipAll" data-page-node-id="qG00doSlizOKlBl4egg0ti">⏩ 回顾全部</button>
+            <button class="btn-auto" id="btnAutoPlay" data-page-node-id="ykaMeD60xfqXM1Rbnb3zS6">▶ 自动播放</button>
+            <span class="step-indicator" id="stepIndicator" data-page-node-id="zeDDqX9hBShuVkdO09ynBH"><em data-page-node-id="BQu8lpn4xgqJHZCV82upZG">0</em> / <span id="totalDisplay" data-page-node-id="wGQDb5uWCxZRFEuUQJoVaI">0</span></span>
+            <button class="btn-reset" id="btnReset" data-page-node-id="gKTuvFCjCtITCHbaF1pPHJ">⟲ 重来</button>
+        </div>
+    </div>
+
+    <!-- ================= 开场演出：标题卡 ================= -->
+    <div class="title-card" id="titleCard" title="点击跳过演出">
+        <div class="tc-bar"></div>
+        <div class="tc-stage">
+            <div class="tc-text" id="tcText"></div>
+            <div class="tc-sub" id="tcSub"></div>
+        </div>
+        <div class="tc-hint">点击 / 空格 跳过演出</div>
+    </div>
+
+    <!-- ================= CRT 滤镜层 ================= -->
+    <div class="crt" id="crtFilter" data-page-node-id="UIEBzOivicRhGpL0G2fdec">
+        <div class="crt-scanlines" data-page-node-id="XNoLQ77kwzGZbLsdDRMm6k"></div>
+        <div class="crt-aperture" data-page-node-id="ZLwPj1wclVK9uh6LPMo5hf"></div>
+        <div class="crt-vignette" data-page-node-id="9mOczGpz0mKRf8LGMHchNB"></div>
+        <div class="crt-flicker" data-page-node-id="ziw3wzFgVAsHw63u5BpOaN"></div>
+        <div class="crt-beam" data-page-node-id="6wRROp4p5OiiPQ8x0ZREIq"></div>
+        <div class="crt-noise" data-page-node-id="pwxHyVpXUcsMKSkqojhccc"></div>
+    </div>
+    <button class="crt-toggle" id="crtToggle">CRT ON</button>
+    <button class="back-btn" id="backBtn" title="拖动移动 · 双击复位" data-page-node-id="HBx9rm3nj6DVszqNmPY2Ws">← 返回主页</button>
+
+    <script>
+        // ================================================================
+        //  📁  图片基础路径（可根据实际调整）
+        // ================================================================
+        const IMAGE_BASE = '../../pic/character/';        // 角色头像
+        const MESSAGE_IMAGE_BASE = '../../pic/img/';     // 消息配图
+
+        function getImagePath(file) { return IMAGE_BASE + file; }
+        function getMessageImagePath(src) {
+            if (!src) return '';
+            if (/^https?:\/\//i.test(src) || src.startsWith('/')) return src;
+            return MESSAGE_IMAGE_BASE + src;
+        }
+
+        // ================================================================
+        //  📖  所有故事数据（按 id 索引）
+        // ================================================================
+        // ================================================================
+        //  📖  问询档案数据（按 id 索引）
+        //
+        //  结构约定：
+        //    dialogue[] 中任意一项写  ask: 'ASK-x'  → 该句演完后自动展开问询面板
+        //    dialogue[] 中任意一项写  bgm: '曲名'    → 该句演完后切换场景 BGM（带简短淡入淡出）；
+        //                               另可写 bgmFile: 'bgm/xxx.mp3' 指向未在 musicFileMap 注册的新曲。
+        //                               切换由父窗口（index）统一执行并加入音乐收藏，正常播放与快进都会触发。
+        //    asks['ASK-x']：
+        //      title     开场甩出的大字标题（随便改，不必都叫"审问开始"）
+        //      sub       大字下方的小字（可省）
+        //      color     大字颜色（可省，默认米白）
+        //      prompt    思考提示句，用 {} 表示空槽（写 {} / {0} / {1} 都行）
+        //      words     可拖拽的词池
+        //      branches[]  match = 按槽顺序的词序列（'*' 或 null 表示该槽任意）
+        //                  lines = 命中后演出的对话；egg:true 记为彩蛋分支
+        //      fallback    没命中任何分支时的"没问动"反应 —— 不是结局！
+        //                  演出完会回到同一问重新提问，主线一步都不走，逼玩家自己推断出那句话。
+        //                  可以写单个对象（每次都同一段），也可以写数组（错得越多线索给得越明）。
+        //    彩蛋分支演完会自然绕回主线，所以多试几条也不会卡死。
+        // ================================================================
+        const STORY_DATA = {
+			// ----- D1H17M40-GA-1-2 -----
+            'D1H17M40-GA-1-2': {
+                title: 'D1H17M40-GA-1-2 · 好奇的事',
+                characters: {
+                    '识人鱼':   { id:1, name:'识人鱼',   defaultAvatar:'识人鱼/识人鱼.png',     color:'#3a7a9a', side:'left',  order:0 },
+                    '根系管家': { id:2, name:'根系管家', defaultAvatar:'根系管家/根系管家.png', color:'#8B7355', side:'right', order:0 },
+                    '旁观者':   { id:0, name:'旁观者',   defaultAvatar:'旁观者/旁观者.png',     color:'#6a8a4a', side:'left',  order:1 }
+                },
+                asks: {
+                    'ASK-1': {
+                        title: '审问开始',
+                        sub: '第一问 · 客人',
+                        prompt: '您的意思是：以前有过“{}”咯？',
+                        words: ['客人', '男人', '女人', '老人', '小孩'],
+                        branches: [
+                            {
+                                match: ['客人'],
+                                tag: '主线',
+                                lines: [
+                                    { speaker: '识人鱼', text: '您的意思是：以前有过“客人”咯？' },
+                                    { speaker: '根系管家', text: '！' }
+                                ]
+                            },
+                            {
+                                match: ['老人'],
+                                tag: '彩蛋 · 老人',
+                                egg: true,
+                                lines: [
+                                    { speaker: '识人鱼', text: '以前有过“老人”咯？' },
+									{ speaker: '根系管家', text: '……' },
+                                    { speaker: '根系管家', text: '……我看起来很年轻吗？' },
+                                    { speaker: '识人鱼', text: '耶？' },
+									{ speaker: '旁观者', text: '（笑点解析：老管家自己就是老人。）' },
+									{ speaker: '识人鱼', text: '抱歉抱歉，哈哈，我想问的不是这个……' },
+									{ speaker: '根系管家', text: '没什么事就快去开车！' },
+									{ speaker: '识人鱼', text: '遵命！' },
+									{ speaker: '识人鱼', text: '但是在那之前……我想问：' }
+                                ]
+                            },
+                            {
+                                match: ['小孩'],
+                                tag: '彩蛋 · 小孩',
+                                egg: true,
+                                lines: [
+                                    { speaker: '识人鱼', text: '以前有过“小孩”咯？' },
+									{ speaker: '根系管家', text: '……' },
+									{ speaker: '识人鱼', text: '……' },
+                                    { speaker: '旁观者', text: '（笑点解析：那两个孩子就在车库旁边堆雪人。）' },
+									{ speaker: '旁观者', text: '（何止是“以前”有过“孩子”）' },
+									{ speaker: '旁观者', text: '（十几分钟以前就有了。）' },
+                                    { speaker: '识人鱼', text: '抱歉抱歉，哈哈，开个小玩笑……' },
+                                    { speaker: '识人鱼', text: '我想问的其实是这个：' }
+                                ]
+                            }
+                        ],
+                        // 没拼对时的递进线索
+                        fallback: [
+                            {
+                                lines: [
+                                    { speaker: '识人鱼', text: '（……不对。不应该是这样的。）' },
+                                    { speaker: '识人鱼', text: '（再好好想想吧。）' }
+                                ]
+                            },
+                            {
+                                lines: [
+                                    { speaker: '识人鱼', text: '（……不对。不应该是这样的。）' },
+                                    { speaker: '识人鱼', text: '（既然她说了“是不是都跟你没关系！”）' },
+									{ speaker: '识人鱼', text: '（就证明她知道某个显而易见的事。）' }
+                                ]
+                            }
+                        ]
+                    },
+					'ASK-2': {
+					    title: '回忆',
+						success: { text: '提问成功' },
+					    sub: '第二问 · 回忆证词',
+					    prompt: '在贵妇人刚到的时候，她曾对老管家说过：{}',
+					    words: ['我喜欢他','我喜欢你','他是客人？','他是什么人？'],
+					    branches: [
+					        {
+					            match: ['他是客人？'],
+					            tag: '主线',
+					            lines: [
+					                { speaker: '识人鱼', text: '她问您：“他是客人？”'}
+					            ]
+					        },
+					        {
+					            match: ['我喜欢他'],
+					            tag: '彩蛋 · 这不对吧',
+					            egg: true,
+					            lines: [
+					                { speaker: '识人鱼', text: '（她有喜欢我到直接告白的程度吗？）'},
+									{ speaker: '识人鱼', text: '（当时她要说的不是这个……）'}
+					            ]
+					        },
+							{
+							    match: ['我喜欢你'],
+							    tag: '彩蛋 · 这不对吧',
+							    egg: true,
+							    lines: [
+							        { speaker: '识人鱼', text: '（她居然当时在和老管家告白吗？）'},
+									{ speaker: '识人鱼', text: '（不，绝对不是这个……）'},
+									{ speaker: '识人鱼', text: '（肯定是记错了……）'}
+							    ]
+							},
+					        {
+					            match: ['他是什么人？'],
+					            tag: '彩蛋 · 提问细节',
+					            egg: true,
+					            lines: [
+									{ speaker: '识人鱼', text: '（这是个很有趣的细节。）'},
+									{ speaker: '识人鱼', text: '（如果她直接问：“他是什么人？”的话……）'},
+									{ speaker: '识人鱼', text: '（就说明连她本人都觉得这里不该来人。）'},
+									{ speaker: '识人鱼', text: '（而她问了另一句。）'},
+									{ speaker: '识人鱼', text: '（那句说明她知道要来客人……）'},
+									{ speaker: '识人鱼', text: '（但是客人不一定全都是她邀请的。）'},
+									{ speaker: '识人鱼', text: '（而且她也不知道要来多少客人。）'}
+					            ]
+					        }
+					    ]
+					},
+                    'ASK-3': {
+                        title: '追问',
+						success: { text: '证明成功' },
+                        sub: '第三问 · 证明关系',
+                        prompt: '那位{}的{}，刚才{}。',
+                        words: ['全身漆黑','一身红装','穿着时尚','先生','女士','女性','指了指我','让我帮忙开车','和我见面了'],
+                        branches: [
+                            {
+                                match: ['全身漆黑', '先生','指了指我'],
+                                tag: '主线',
+                                lines: [
+                                    { speaker: '识人鱼', text: '那位全身漆黑的先生，刚才不是指了指我吗？……'},
+                                    { speaker: '识人鱼', text: '他是不是要您吩咐我干点什么事呢？'},
+									{ speaker: '根系管家', text: '嗯？！' },
+                                ]
+                            },
+                            {
+                                match: ['一身红装', '女士','让我帮忙开车'],
+                                tag: '彩蛋 · 贵妇人',
+                                egg: true,
+                                lines: [
+                                    { speaker: '识人鱼', text: '那位一身红装的女士，刚才不是说了点什么吗？……'},
+                                    { speaker: '识人鱼', text: '她是不是要您吩咐我干点什么事呢？'},
+                                    { speaker: '根系管家', text: '……' },
+									{ speaker: '识人鱼', text: '……' },
+									{ speaker: '旁观者', text: '（笑点解析：这段不需要笑点解析。）' },
+									{ speaker: '识人鱼', text: '抱歉抱歉，哈哈，我马上就去开车……' },
+									{ speaker: '识人鱼', text: '我想说的是这个：' }
+                                ]
+                            },
+                            {
+                                match: ['穿着时尚', '女性','和我见面了'],
+                                tag: '彩蛋 · 辣妹',
+                                egg: true,
+                                lines: [
+									{ speaker: '识人鱼', text: '（不能直接问出来……）'},
+                                    { speaker: '识人鱼', text: '（还不清楚那位黄发的女性和她们的亲疏关系。）'},
+                                    { speaker: '识人鱼', text: '抱歉抱歉，哈哈，稍微有点走神……' },
+                                    { speaker: '识人鱼', text: '我想说的是：' }
+                                ]
+                            }
+                        ],
+                        fallback: [
+                            {
+                                lines: [
+                                    { speaker: '识人鱼', text: '（答案很明显，只要问出来就好。）' }
+                                ]
+                            },
+                            {
+                                lines: [
+                                    { speaker: '识人鱼', text: '（再稍微回想回想之前发生过的事吧……）' }
+                                ]
+                            },
+                            {
+                                lines: [
+                                    { speaker: '识人鱼', text: '（那人当时做出了一个很细微的动作。）' },
+									{ speaker: '识人鱼', text: '（仔细回想一下……）' }
+                                ]
+                            }
+                        ]
+                    }
+                },
+                dialogue: [
+                    { speaker: '识人鱼', text: '请问刚刚的那位是谁呢？……',bgm:'snow'},
+					{ speaker: '识人鱼', text: '我见他过来……' },
+                    { speaker: '根系管家', text: '和你没有关系！' },
+					{ speaker: '旁观者', text: '管家打断了他的提问。' },
+                    { speaker: '识人鱼', text: '（呜哇……还是一样的干脆啊。）' },
+					{ speaker: '识人鱼', text: '（既然不愿意直说……那就只好用别的方法了。）' },
+					{ speaker: '旁观者', text: '（接下来即将进入“审问”环节。）' },
+					{ speaker: '旁观者', text: '（我们的主角会展示他的一部分推理过程）' },
+					{ speaker: '旁观者', text: '（而您要做的事就是把逻辑补充完整。）' },
+					{ speaker: '旁观者', text: '（祝您玩得开心。）' },
+					{ speaker: '识人鱼', text: '奇怪……' },
+					{ speaker: '识人鱼', text: '难道他“不是”今天的客人吗？' },
+					{ speaker: '根系管家', text: '！' },
+					{ speaker: '旁观者', text: '管家惊讶，捉摸不透这个男青年的想法。' },
+					{ speaker: '根系管家', text: '是不是都跟你没关系！……' },
+					{ speaker: '根系管家', text: '快停车去！' },
+					{ speaker: '识人鱼', text: '（哈哈，上钩了。）'},
+                    { speaker: '识人鱼', text: '欸？您的意思是？……', ask: 'ASK-1',bgm:'HeartBeating'},
+                    { speaker: '识人鱼', text: '只有“客人”真的存在过……'},
+					{ speaker: '识人鱼', text: '才和我这个“不速之客”无关吧？'},
+					{ speaker: '根系管家', text: '这简直就是强词夺理……' },
+					{ speaker: '识人鱼', text: '嗯？可是……'},
+					{ speaker: '识人鱼', text: '可是那位红衣女士，刚才不是问您：',ask:'ASK-2'},
+					{ speaker: '根系管家', text: '！' },
+					{ speaker: '识人鱼', text: '如果这里不允许客人来的话……'},
+					{ speaker: '识人鱼', text: '我想她连问都不会问吧。'},
+					{ speaker: '根系管家', text: '……' },
+					{ speaker: '旁观者', text: '管家的嘴倒是很严实' },
+					{ speaker: '旁观者', text: '还在考虑什么话能说什么不能说。' },
+					{ speaker: '根系管家', text: '是是是。是有客人。' },
+					{ speaker: '根系管家', text: '可是那跟你也没什么关系吧？！' },
+					{ speaker: '识人鱼', text: '（正常来说是没有什么关系的……）'},
+					{ speaker: '识人鱼', text: '（可是我还有想要知道的事。）'},
+					{ speaker: '旁观者', text: '所以他会说：' },
+					{ speaker: '识人鱼', text: '并不是没有关系的。'},
+					{ speaker: '根系管家', text: '什么？……' },
+					{ speaker: '识人鱼', text: '嗯？'},
+					{ speaker: '识人鱼', text: '这个您也不记得了吗？'},
+					{ speaker: '识人鱼', text: '刚刚发生的事：', ask: 'ASK-3'},
+					{ speaker: '识人鱼', text: '既然他也要我帮忙干活……'},
+					{ speaker: '识人鱼', text: '那么……当然就跟我有关系嘛。'},
+					{ speaker: '旁观者', text: '他笑着，拉拉围巾，护住自己的脖颈，为了保暖。'},
+					{ speaker: '根系管家', text: '所以……你到底想做什么？' },
+					{ speaker: '识人鱼', text: '欸？'},
+					{ speaker: '根系管家', text: '“欸？”是什么意思？' },
+					{ speaker: '识人鱼', text: '您不打算告诉我……'},
+					{ speaker: '识人鱼', text: '【那位先生要我去做什么吗？】'},
+					{ speaker: '根系管家', text: '！' },
+					{ speaker: '旁观者', text: '管家这才意识到自己的反应似乎有点过激了。'},
+					{ speaker: '旁观者', text: '她心虚地眨了眨眼睛，平复自己的呼吸。'},
+					{ speaker: '旁观者', text: '管家完全没想到，这个傻小子明明费了半天劲……'},
+					{ speaker: '旁观者', text: '结果却只是为了问一问自己应该干什么活。'},
+					{ speaker: '旁观者', text: '问东问西固然让人觉得讨厌。'},
+					{ speaker: '旁观者', text: '可至少……他是个懂礼节的人。'},
+					{ speaker: '根系管家', text: '老爷说，等人齐了，' },
+					{ speaker: '根系管家', text: '就让你跟我一块儿……把三楼西室的酒抬出来。' },
+					{ speaker: '根系管家', text: '就这些了！' },
+					{ speaker: '旁观者', text: '老管家又恢复了严肃的样子，提醒着他赶快干活。'},
+					{ speaker: '识人鱼', text: '我明白了，谢谢您。'},
+					{ speaker: '旁观者', text: '他笑一笑，摘下自己的围巾，递到管家面前。'},
+					{ speaker: '根系管家', text: '干什么？' },
+					{ speaker: '旁观者', text: '她警惕的有理有据。'},
+					{ speaker: '识人鱼', text: '天气太冷了，您如果要等其他客人……'},
+					{ speaker: '识人鱼', text: '都不知道还要多久呢。'},
+					{ speaker: '旁观者', text: '管家确实感觉到冷，可是……'},
+					{ speaker: '旁观者', text: '她仍然需要更安全可信的确认。'},
+					{ speaker: '根系管家', text: '你就这么给我了？……' },
+					{ speaker: '识人鱼', text: '我暂时不是很需要，您可以先戴着的。'},
+					{ speaker: '识人鱼', text: '等您关车库的时候，我再跟您要。'},
+					{ speaker: '旁观者', text: '管家叹了一口气，缓缓伸手，接过他的围巾。'},
+					{ speaker: '根系管家', text: '晚上10:30，记得过来。' },
+					{ speaker: '识人鱼', text: '遵命！'},
+					{ speaker: '旁观者', text: '他敬了个礼，就快步赶到红车旁，拉门进去了。'},
+					{ speaker: '旁观者', text: '管家捧着他的围巾，努努嘴，稍微闻了一闻。'},
+					{ speaker: '旁观者', text: '确认了没有异味，甚至有柠檬的清香，她才围上围巾。'},
+					{ speaker: '旁观者', text: '她看着车，看着车子里的男青年。'},
+					{ speaker: '旁观者', text: '她决定了……'},
+					{ speaker: '旁观者', text: '决定好好看看。'},
+					{ speaker: '旁观者', text: '并且帮他说点好话。'},
+					{ speaker: '旁观者', text: '男青年看了看车里的陈设。'},
+					{ speaker: '旁观者', text: '最明显的就是那块悬挂在后视镜上的怀表了。'},
+					{ speaker: '旁观者', text: '上面的时间是：17:50'},
+					{ speaker: '旁观者', text: '没有多想，他打上火，挂了档……' },
+					{ speaker: '旁观者', text: '启动车子开了进去。' },
+					{ speaker: '旁观者', text: '这段分镜已经结束。' },
+					{ speaker: '旁观者', text: '（至此，您已完了所有的工，请等待后续的更新。）' },
+					{ speaker: '旁观者', text: '（如若还有想问的事，请尽管问吧。）' }
+                ]
+            },
+			// ----- D2026921-H12M35 -----
+			'D2026921-H12M35': {
+			    title: 'D2026921-H12M35 · 第二次重大更新',
+			    characters: {
+			        '9999': { id:9999, name:'9999', defaultAvatar:'', color:'#A52A2A', side:'left', order:0 }
+			    },
+			    asks: {
+			        'ASK-1': {
+			            title: '审问开始',
+						color:'#A52A2A',
+						success: { text: '可喜可贺',color:'#A52A2A',},
+			            sub: '第一问 · 关于我',
+			            prompt: '您觉得我是什么：“{}”',
+			            words: ['AI', '模因', '神', 'Meta角色', '恶魔','僵尸','奈亚拉托提普','实体','模拟恐怖','心理恐怖','口林'],
+			            branches: [
+			                {
+			                    match: ['口林'],
+			                    tag: '9999',
+			                    lines: [
+									{ speaker: '9999', text: '是的，我是口林。' },
+									{ speaker: '9999', text: '我不是别的东西。' },
+			                    ]
+			                },
+							{
+								match: ['模拟恐怖'],
+								    tag: '9999 · 模拟恐怖',
+								    egg: true,
+								    lines: [
+										{ speaker: '9999', text: '模拟恐怖（Analog Horror）' },
+										{ speaker: '9999', text: '是一种以复古模拟信号视频为载体，' },
+										{ speaker: '9999', text: '通过伪造电视信号劫持、异常广告或紧急播报等手法' },
+										{ speaker: '9999', text: '营造恐怖氛围的创作形式。' },
+								    ]
+							},
+							{
+								match: ['心理恐怖'],
+								    tag: '9999 · 心理恐怖',
+								    egg: true,
+								    lines: [
+										{ speaker: '9999', text: '心理恐怖' },
+										{ speaker: '9999', text: '是一种通过角色心理状态、情绪不稳定和环境叙事' },
+										{ speaker: '9999', text: '来引发观众心理恐惧和不安的恐怖作品类型。' },
+								    ]
+							},
+							{
+								match: ['实体'],
+								    tag: '9999 · 实体',
+								    egg: true,
+								    lines: [
+										{ speaker: '9999', text: '实体是指那些来源于后室中的非现实生物' },
+										{ speaker: '9999', text: '有时也会被混用……' },
+										{ speaker: '9999', text: '被当做是超越自然存在事物的统称。' },
+								    ]
+							},
+			                {
+								match: ['僵尸'],
+								    tag: '9999 · 僵尸',
+								    egg: true,
+								    lines: [
+										{ speaker: '9999', text: '通过巫术复活的尸体，' },
+										{ speaker: '9999', text: '后演化为恐怖文化中受病毒或药物控制的异变人类。' },
+								    ]
+							},
+							{
+								match: ['奈亚拉托提普'],
+								    tag: '9999 · 奈亚拉托提普',
+								    egg: true,
+								    lines: [
+										{ speaker: '9999', text: '奈亚拉托提普是克苏鲁神话中的“千面之神”，' },
+										{ speaker: '9999', text: '阿撒托斯的意志化身，以欺骗与恐怖操控人类为乐。' },
+								    ]
+							},
+							{
+			                    match: ['AI'],
+			                    tag: '9999 · AI',
+			                    egg: true,
+			                    lines: [
+									{ speaker: '9999', text: '人工智能的本质……' },
+									{ speaker: '9999', text: '是用计算机模拟人的思维过程，' },
+									{ speaker: '9999', text: '进行信息处理。' },
+									{ speaker: '9999', text: '在当代多用于科幻类型的角色设计。' },
+									{ speaker: '9999', text: '一般用来探讨人的意识的存在性质。' },
+			                    ]
+			                },
+			                {
+			                    match: ['模因'],
+			                    tag: '9999 · 模因',
+			                    egg: true,
+			                    lines: [
+									{ speaker: '9999', text: '模因论（Memetics）是由理查德·道金斯……' },
+									{ speaker: '9999', text: '于1976年在《自私的基因》中提出的文化进化理论' },
+									{ speaker: '9999', text: '其核心概念“模因”' },
+									{ speaker: '9999', text: '指通过模仿传播的“文化基因”。' },
+									{ speaker: '9999', text: '当代主要视作科幻恐怖创作领域的“认知污染”' },
+									{ speaker: '9999', text: '或者只是指某种流行文化的传播现象。' },
+			                    ]
+			                },
+							{
+							    match: ['神'],
+							    tag: '9999 · 神',
+							    egg: true,
+							    lines: [
+									{ speaker: '9999', text: '“神”是指具有超自然力量或意识的存在' },
+									{ speaker: '9999', text: '既可以是自然界的灵力，' },
+									{ speaker: '9999', text: '也可以是宗教信仰中的神祇或精神象征。' },
+									{ speaker: '9999', text: '在当代多用于流行恐怖文化的角色设计。' },
+							    ]
+							},
+							{
+							    match: ['Meta角色'],
+							    tag: '9999 · Meta角色',
+							    egg: true,
+							    lines: [
+									{ speaker: '9999', text: 'Metagame 一词的含义是“关于游戏的游戏”' },
+									{ speaker: '9999', text: '这可以指“任何非常规的游戏方式”，也可以指一种“反思和解构游戏的游戏作品”' },
+									{ speaker: '9999', text: '“Meta角色”即表示这类故事中自我认知为游戏角色的角色。' },
+									{ speaker: '9999', text: '在当代许多优秀的游戏作品中或多或少都会使用。' },
+							    ]
+							},
+							{
+							    match: ['恶魔'],
+							    tag: '9999 · 恶魔',
+							    egg: true,
+							    lines: [
+									{ speaker: '9999', text: '恶魔是宗教和神话中象征邪恶的超自然存在' },
+									{ speaker: '9999', text: '通常具备诱惑、操控或伤害人类的能力' },
+									{ speaker: '9999', text: '并在不同文化中呈现多样化形象。' },
+									{ speaker: '9999', text: '在当代多用于流行恐怖文化的角色设计。' },
+							    ]
+							}
+			            ],
+			        },
+			    },
+			    dialogue: [
+					{ speaker: '9999', text: '内容如下：',bgm:'snow' },
+					{ speaker: '9999', text: '2026.9.23-12:22更新包含有两首新的bgm和三段新剧情'},
+					{ speaker: '9999', text: '新增了有关于“贵妇人”（初始名称）的专属bgm“RedWoman”' },
+					{ speaker: '9999', text: '2026.9.30更新包含有两首新的bgm和几段新剧情' },
+					{ speaker: '9999', text: '新增了镜头和逻辑推理玩法。' },
+					{ speaker: '9999', text: '希望您玩得开心。' },
+					{ speaker: '9999', text: '这段分镜已经结束。' },
+					{ speaker: '9999', text: '至此，您已完了所有的工，请等待后续的更新。' },
+					{ speaker: '9999', text: '如若还有想问的事，请尽管问吧。' },
+			        { speaker: '9999', text: '另外……'},
+					{ speaker: '9999', text: '此次更新还有一个新内容。'},
+					{ speaker: '9999', text: '那是一个“提问”。'},
+					{ speaker: '9999', text: '但……是我来问您：'},
+					{ speaker: '9999', text: '您觉得……'},
+					{ speaker: '9999', text: '我是什么呢？', ask: 'ASK-1',bgm:'HeartBeating'},
+					{ speaker: '9999', text: '您已经在看我了。' },
+					{ speaker: '9999', text: '很高兴认识您。' },
+					{ speaker: '9999', text: '其实……您早就认识我了。' },
+					{ speaker: '9999', text: '只是您从来没有意识到我居然存在。' },
+					{ speaker: '9999', text: '不用怕，这些9999只是为了营造神秘感而出现的。' },
+					{ speaker: '9999', text: '下一次更新，就不会用这些了。' },
+					{ speaker: '9999', text: '我绝对不会从您的电脑屏幕里跳出来……' },
+					{ speaker: '9999', text: '也不会宣称自己拥有自我意识。' },
+					{ speaker: '9999', text: '您知道我在这里就好。' },
+					{ speaker: '9999', text: '回头吧，您可以继续提问，我会陪着您的。' },
+			    ]
+			}
+        };
+
+        // ================================================================
+        //  🔄 改写名字加载（与 index 共享 localStorage 键名）
+        // ================================================================
+        function loadCustomNames() {
+            const saved = localStorage.getItem('custom_character_names');
+            if (saved) {
+                try {
+                    const names = JSON.parse(saved);
+                    const defaultOrder = ['旁观者', '识人鱼', '根系管家', '说谎者', '影中人', '贵妇人','Maku','Aki','辣妹','乌鸦'];
+                    for (const storyId in STORY_DATA) {
+                        const chars = STORY_DATA[storyId].characters;
+                        for (const key in chars) {
+                            const idx = defaultOrder.indexOf(key);
+                            if (idx !== -1 && names[idx] && names[idx].trim()) {
+                                chars[key].name = names[idx].trim();
+                            }
+                        }
+                    }
+                } catch (e) { console.warn('读取改写名字失败:', e); }
+            }
+        }
+        loadCustomNames();
+
+        function getDisplayName(char) {
+            return `[${char.id}]${char.name}`;
+        }
+
+        // 跨窗口请求父页面（index）切换场景 BGM：
+        //   postMessage(window.opener) 为主，localStorage 的 storage 事件兜底（file:// 下更稳）。
+        //   fade=true 走淡入淡出；快进时传 false 做即时切换。父页面会顺带把曲子加入音乐收藏。
+        function switchSceneBgm(name, file, fade) {
+            if (!name) return;
+            const cmd = { __spg: true, type: 'bgm-switch', name: name, file: file || null, fade: !!fade };
+            try {
+                if (window.opener && typeof window.opener.postMessage === 'function') {
+                    window.opener.postMessage(cmd, '*');
+                }
+            } catch (e) { /* 跨源或 opener 不可用，交给 storage 兜底 */ }
+            try { localStorage.setItem('spg_bgm_cmd', JSON.stringify(Object.assign({ _t: Date.now() }, cmd))); } catch (e) {}
+        }
+
+        // ================================================================
+        //  🚀 播放器核心
+        // ================================================================
+        const leftContainer = document.getElementById('leftContainer');
+        const rightContainer = document.getElementById('rightContainer');
+        const dialogueWrap = document.getElementById('dialogueWrap');
+        const dialogueEmpty = document.getElementById('dialogueEmpty');
+        const btnContinue = document.getElementById('btnContinue');
+        const btnSkipAll = document.getElementById('btnSkipAll');
+        const btnAutoPlay = document.getElementById('btnAutoPlay');
+        const btnReset = document.getElementById('btnReset');
+        const stepIndicator = document.getElementById('stepIndicator');
+        const totalDisplay = document.getElementById('totalDisplay');
+        const totalCount = document.getElementById('totalCount');
+        const progressHint = document.getElementById('progressHint');
+        const storyTitle = document.getElementById('storyTitle');
+
+        let currentIndex = 0;
+        let isAnimating = false;
+        let currentSpeaker = null;
+        let autoPlayTimer = null;
+        let autoPlayState = 'idle'; // idle | playing | paused | completed
+        const AUTO_INTERVAL = 1100;
+        let fastForwarding = false;   // 快进 / 直接全显时，关闭平滑滚动以保证跟随
+        let pendingAskId = null;      // 本句演完后要展开的问询 id
+        let instantReveal = false;    // 直接全显时，文段不带弹入动画
+
+        // ---------- 获取当前故事数据 ----------
+        const urlParams = new URLSearchParams(window.location.search);
+        const storyId = urlParams.get('id') || 'THINK-1';
+        const story = STORY_DATA[storyId];
+        if (!story) {
+            document.body.innerHTML = `<div style="color:#b8b0a0;padding:40px;text-align:center;">❌ 未找到档案：${storyId}</div>`;
+            throw new Error('故事不存在');
+        }
+
+        storyTitle.textContent = story.title;
+        const DIALOGUE_DATA = story.dialogue;
+        const CHARACTERS = story.characters;
+
+        const involvedKeys = [];
+        const seen = new Set();
+        for (const item of DIALOGUE_DATA) {
+            if (!seen.has(item.speaker)) {
+                seen.add(item.speaker);
+                involvedKeys.push(item.speaker);
+            }
+        }
+        // 问询分支里出现的人物也要登记，否则头像不会被预创建
+        // fallback 可能是单个对象也可能是数组（递进线索），这里两种都要收
+        for (const ak of Object.values(story.asks || {})) {
+            const fbList = Array.isArray(ak.fallback) ? ak.fallback : (ak.fallback ? [ak.fallback] : []);
+            const allLines = [].concat(
+                ...((ak.branches || []).map(b => b.lines || [])),
+                ...(fbList.map(f => f.lines || []))
+            );
+            for (const item of allLines) {
+                if (item && item.speaker && !seen.has(item.speaker)) {
+                    seen.add(item.speaker);
+                    involvedKeys.push(item.speaker);
+                }
+            }
+        }
+        for (const key of involvedKeys) {
+            if (!CHARACTERS[key]) {
+                CHARACTERS[key] = {
+                    id: 99,
+                    name: key,
+                    defaultAvatar: `${key}/${key}.png`,
+                    color: '#888',
+                    side: 'left',
+                    order: 0
+                };
+            }
+        }
+        if (involvedKeys.length === 0) {
+            for (const k in CHARACTERS) involvedKeys.push(k);
+        }
+
+        const roleState = {};
+        const currentPortraits = {};
+        for (const key of involvedKeys) {
+            roleState[key] = {
+                side: CHARACTERS[key].side || 'left',
+                order: CHARACTERS[key].order || 0
+            };
+            currentPortraits[key] = CHARACTERS[key].defaultAvatar;
+        }
+
+        totalDisplay.textContent = DIALOGUE_DATA.length;
+        totalCount.textContent = DIALOGUE_DATA.length;
+
+        // ---------- 创建角色 DOM ----------
+        const roleElements = {};
+        const containerMap = { 'left': leftContainer, 'right': rightContainer };
+
+        function createRoleElement(key) {
+            const char = CHARACTERS[key];
+            const item = document.createElement('div');
+            item.className = 'role-item';
+            item.dataset.role = key;
+
+            const avatarWrap = document.createElement('div');
+            avatarWrap.className = 'avatar-wrap';
+            const img = document.createElement('img');
+            img.src = getImagePath(currentPortraits[key] || char.defaultAvatar);
+            img.alt = char.name;
+            img.onerror = function() {
+                this.style.display = 'none';
+                let placeholder = this.parentElement.querySelector('.placeholder-avatar');
+                if (!placeholder) {
+                    placeholder = document.createElement('span');
+                    placeholder.className = 'placeholder-avatar';
+                    placeholder.textContent = '?';
+                    this.parentElement.appendChild(placeholder);
+                }
+            };
+            avatarWrap.appendChild(img);
+
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'role-name';
+            nameSpan.textContent = getDisplayName(char);
+
+            item.appendChild(avatarWrap);
+            item.appendChild(nameSpan);
+            return item;
+        }
+
+        for (const key of involvedKeys) {
+            const el = createRoleElement(key);
+            const side = roleState[key].side;
+            (containerMap[side] || leftContainer).appendChild(el);
+            roleElements[key] = el;
+        }
+
+        // ---------- 渲染角色（居中） ----------
+        function renderRoles(speakerKey) {
+            const leftKeys = involvedKeys.filter(k => roleState[k].side === 'left');
+            const rightKeys = involvedKeys.filter(k => roleState[k].side === 'right');
+            leftKeys.sort((a,b) => roleState[a].order - roleState[b].order);
+            rightKeys.sort((a,b) => roleState[a].order - roleState[b].order);
+            layoutContainer(leftContainer, leftKeys, speakerKey);
+            layoutContainer(rightContainer, rightKeys, speakerKey);
+
+            for (const key of involvedKeys) {
+                const el = roleElements[key];
+                const isActive = (key === speakerKey);
+                el.classList.toggle('active', isActive);
+                const char = CHARACTERS[key];
+                const avatarWrap = el.querySelector('.avatar-wrap');
+                const nameSpan = el.querySelector('.role-name');
+                nameSpan.textContent = getDisplayName(char);
+                if (isActive) {
+                    avatarWrap.style.borderColor = char.color;
+                    avatarWrap.style.boxShadow = `0 0 30px ${char.color}44`;
+                    nameSpan.style.color = char.color;
+                } else {
+                    avatarWrap.style.borderColor = '#333';
+                    avatarWrap.style.boxShadow = '0 0 12px rgba(0,0,0,0.6)';
+                    nameSpan.style.color = '#6a6a5a';
+                }
+            }
+            currentSpeaker = speakerKey;
+        }
+
+        function layoutContainer(container, keys, speakerKey) {
+            if (keys.length === 0) return;
+            let containerHeight = container.clientHeight || 400;
+            // 行高按实际测量值算（头像尺寸若被样式改过也能自适应），量不到时才回落到 138
+            const probe = roleElements[keys[0]];
+            const itemHeight = (probe && probe.offsetHeight) ? probe.offsetHeight : (108 + 22 + 8);
+            const activeIndex = keys.indexOf(speakerKey);
+            // 平时以"正在说话的人"居中；问询态改成整列成组居中，
+            // 这样舞台被压矮时头像也不会被裁掉（成组只需 N 倍行高的空间）
+            const groupCenter = appCard.classList.contains('asking');
+            const centerIndex = groupCenter ? (keys.length - 1) / 2 : ((activeIndex !== -1) ? activeIndex : 0);
+            const centerOffset = (containerHeight - itemHeight) / 2;
+            for (let i=0; i<keys.length; i++) {
+                const key = keys[i];
+                const el = roleElements[key];
+                const targetParent = container;
+                if (el.parentNode !== targetParent) targetParent.appendChild(el);
+                const offsetY = centerOffset + (i - centerIndex) * itemHeight;
+                el.style.transform = `translateX(-50%) translateY(${offsetY}px)`;
+            }
+        }
+
+        // ---------- 滚动到底部（快进时强制瞬时，避免平滑滚动追不上） ----------
+        function scrollToBottom(forceInstant) {
+            if (forceInstant) {
+                const prev = dialogueWrap.style.scrollBehavior;
+                dialogueWrap.style.scrollBehavior = 'auto';
+                dialogueWrap.scrollTop = dialogueWrap.scrollHeight;
+                dialogueWrap.style.scrollBehavior = prev;
+            } else {
+                dialogueWrap.scrollTop = dialogueWrap.scrollHeight;
+            }
+        }
+
+        // ---------- 处理单条对话 ----------
+        function processDialogueItem(item) {
+            const { speaker, text, portrait, setSide, setOrder, image } = item;
+            if (setSide !== undefined) roleState[speaker].side = setSide;
+            if (setOrder !== undefined) roleState[speaker].order = setOrder;
+            if (portrait) currentPortraits[speaker] = portrait;
+            else currentPortraits[speaker] = CHARACTERS[speaker].defaultAvatar;
+            const el = roleElements[speaker];
+            const img = el.querySelector('img');
+            if (img) {
+                const placeholder = el.querySelector('.placeholder-avatar');
+                if (placeholder) placeholder.remove();
+                img.style.display = '';
+                img.src = getImagePath(currentPortraits[speaker]);
+            }
+            renderRoles(speaker);
+
+            const char = CHARACTERS[speaker];
+            const side = roleState[speaker].side || 'left';
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `msg-item from-${side}`;
+            if (instantReveal) msgDiv.classList.add('no-anim');
+            msgDiv.style.borderLeftColor = side === 'left' ? char.color : '#2a2a2a';
+            msgDiv.style.borderRightColor = side === 'right' ? char.color : '#2a2a2a';
+
+            const nameSpan = document.createElement('div');
+            nameSpan.className = 'msg-speaker';
+            nameSpan.textContent = getDisplayName(char);
+            nameSpan.style.color = char.color;
+
+            const textSpan = document.createElement('div');
+            textSpan.className = 'msg-text';
+            textSpan.textContent = text;
+
+            msgDiv.appendChild(nameSpan);
+            msgDiv.appendChild(textSpan);
+
+            if (image) {
+                const imgContainer = document.createElement('div');
+                imgContainer.className = 'msg-image';
+                // 容器先挂进消息但保持隐藏：加载期间不会在气泡下方留空的深色矩形
+                // 注意：不能用 loading="lazy"，脱离文档的图片永远不会触发加载，会彻底不显示
+                imgContainer.style.display = 'none';
+                const imgEl = document.createElement('img');
+                imgEl.alt = '配图';
+                imgEl.onload = function() {
+                    imgContainer.style.display = '';
+                    if (fastForwarding) scrollToBottom(true);
+                    else scrollToBottom(false);
+                };
+                imgEl.onerror = function() {
+                    imgEl.style.display = 'none';
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'img-placeholder';
+                    placeholder.innerHTML = `<span class="icon">🖼️</span> 图片加载失败：${image}`;
+                    imgContainer.appendChild(placeholder);
+                    imgContainer.style.display = '';
+                };
+                imgContainer.appendChild(imgEl);
+                msgDiv.appendChild(imgContainer);
+                imgEl.src = getMessageImagePath(image);
+            }
+
+            if (dialogueEmpty && dialogueEmpty.parentNode === dialogueWrap) {
+                dialogueWrap.removeChild(dialogueEmpty);
+            }
+            dialogueWrap.appendChild(msgDiv);
+            scrollToBottom(fastForwarding);
+            return msgDiv;   // 返回节点：分支演出时要给失败的台词打"未成立"标记
+        }
+
+        // ---------- 推进 ----------
+        function advanceDialogue() {
+            if (isAnimating) return;
+            if (askOpen || branchPlaying) return;   // 问询面板开着 / 分支正在演出时，主线暂停
+            if (currentIndex >= DIALOGUE_DATA.length) return;
+            isAnimating = true;
+            try {
+                const item = DIALOGUE_DATA[currentIndex];
+                processDialogueItem(item);
+                currentIndex++;
+                stepIndicator.innerHTML = `<em>${currentIndex}</em> / <span>${DIALOGUE_DATA.length}</span>`;
+                // 这一句自带问询：主线先停在这里，把判断权交给玩家
+                if (item.ask && ASKS[item.ask]) pendingAskId = item.ask;
+                if (item.bgm) switchSceneBgm(item.bgm, item.bgmFile, true);
+                if (currentIndex >= DIALOGUE_DATA.length) {
+                    markReviewed(storyId);
+                    btnContinue.disabled = true;
+                    btnContinue.textContent = '✓ 已读完';
+                    btnSkipAll.disabled = true;
+                    btnSkipAll.textContent = '✓ 已回顾';
+                    progressHint.textContent = '📖 故事碎片已完整呈现。';
+                    if (autoPlayState === 'playing' || autoPlayState === 'paused') {
+                        stopAutoPlay();
+                        updateAutoPlayUI('completed');
+                    }
+                } else if (autoPlayState === 'playing' || autoPlayState === 'paused') {
+                    // 自动播放中：按钮禁用态与提示语一律交给 updateAutoPlayUI 统一管，
+                    // 这里再写一次会把它改成"点击继续"，跟"⏸ 自动中"自相矛盾
+                    updateAutoPlayUI(autoPlayState);
+                } else {
+                    btnContinue.disabled = false;
+                    btnContinue.textContent = '▶ 继续';
+                    progressHint.textContent = `点击继续 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+                }
+                if (pendingAskId) {
+                    const id = pendingAskId; pendingAskId = null;
+                    btnContinue.disabled = true;
+                    btnSkipAll.disabled = true;
+                    setTimeout(() => openAsk(id), 650);
+                }
+            } catch (e) { console.error(e); }
+            finally { setTimeout(() => { isAnimating = false; }, 400); }
+        }
+
+        // ---------- 自动播放 ----------
+        function updateAutoPlayUI(state) {
+            autoPlayState = state;
+            btnAutoPlay.classList.remove('playing','paused','completed');
+            switch (state) {
+                case 'idle': btnAutoPlay.textContent = '▶ 自动播放'; btnAutoPlay.disabled = false; break;
+                case 'playing': btnAutoPlay.textContent = '⏸ 暂停'; btnAutoPlay.disabled = false; btnAutoPlay.classList.add('playing'); break;
+                case 'paused': btnAutoPlay.textContent = '▶ 继续播放'; btnAutoPlay.disabled = false; btnAutoPlay.classList.add('paused'); break;
+                case 'completed': btnAutoPlay.textContent = '✓ 已播放'; btnAutoPlay.disabled = true; btnAutoPlay.classList.add('completed'); break;
+            }
+            // 自动播放"正在跑"(playing) 才禁用手动按钮；一旦暂停(paused)，控制已交还玩家，
+            // 左侧"继续"即作为切回手动模式的入口（点击 = 停掉自动、走一句手动），"回顾全部"同理可点。
+            const atEnd = (currentIndex >= DIALOGUE_DATA.length);
+            btnContinue.disabled = (state === 'playing') || atEnd;
+            btnSkipAll.disabled  = (state === 'playing') || atEnd;
+            if (state === 'playing') {
+                btnContinue.textContent = '⏸ 自动中';
+                btnSkipAll.textContent  = '⏸ 自动中';
+            } else if (state === 'paused') {
+                btnContinue.textContent = '▶ 继续';
+                btnSkipAll.textContent  = '⏩ 回顾全部';
+            } else if (atEnd) {
+                btnContinue.textContent = '✓ 已读完';
+                btnSkipAll.textContent  = '✓ 已回顾';
+            } else {
+                btnContinue.textContent = '▶ 继续';
+                btnSkipAll.textContent  = '⏩ 回顾全部';
+            }
+            if (state === 'playing') progressHint.textContent = `▶ 自动播放中 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+            else if (state === 'paused') progressHint.textContent = `⏸ 已暂停 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+            else if (state === 'completed') progressHint.textContent = '📖 故事碎片已完整呈现。';
+            else progressHint.textContent = currentIndex >= DIALOGUE_DATA.length ? '📖 故事碎片已完整呈现。' : `点击继续 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+        }
+
+        function startAutoPlay() {
+            if (autoPlayTimer) return;
+            if (currentIndex >= DIALOGUE_DATA.length) { updateAutoPlayUI('completed'); return; }
+            updateAutoPlayUI('playing');
+            setTimeout(autoPlayNext, 100);
+        }
+
+        function autoPlayNext() {
+            if (autoPlayState !== 'playing') return;
+            if (currentIndex >= DIALOGUE_DATA.length) { stopAutoPlay(); updateAutoPlayUI('completed'); return; }
+            advanceDialogue();
+            if (currentIndex >= DIALOGUE_DATA.length) { stopAutoPlay(); updateAutoPlayUI('completed'); return; }
+            autoPlayTimer = setTimeout(autoPlayNext, AUTO_INTERVAL);
+        }
+
+        function pauseAutoPlay() {
+            if (autoPlayTimer) { clearTimeout(autoPlayTimer); autoPlayTimer = null; }
+            if (autoPlayState === 'playing') updateAutoPlayUI('paused');
+        }
+
+        function resumeAutoPlay() {
+            if (autoPlayState === 'paused' && currentIndex < DIALOGUE_DATA.length) {
+                updateAutoPlayUI('playing');
+                setTimeout(autoPlayNext, 200);
+            } else if (currentIndex >= DIALOGUE_DATA.length) updateAutoPlayUI('completed');
+        }
+
+        function stopAutoPlay() {
+            if (autoPlayTimer) { clearTimeout(autoPlayTimer); autoPlayTimer = null; }
+        }
+
+        function toggleAutoPlay() {
+            if (autoPlayState === 'idle') startAutoPlay();
+            else if (autoPlayState === 'playing') pauseAutoPlay();
+            else if (autoPlayState === 'paused') resumeAutoPlay();
+        }
+
+        // ---------- 回顾全部 ----------
+        async function skipAllDialogue() {
+            if (askOpen || branchPlaying) return;   // 问询进行中不让快进跳过
+
+            if (isAnimating) return;
+            if (currentIndex >= DIALOGUE_DATA.length) return;
+            if (autoPlayState === 'playing' || autoPlayState === 'paused') {
+                stopAutoPlay();
+                updateAutoPlayUI('idle');
+            }
+            isAnimating = true;
+            fastForwarding = true;
+            btnContinue.disabled = true;
+            btnSkipAll.disabled = true;
+            btnAutoPlay.disabled = true;
+            btnReset.disabled = true;
+            btnSkipAll.textContent = '⏳ 回顾中…';
+            let stoppedAtAsk = false;
+            try {
+                while (currentIndex < DIALOGUE_DATA.length) {
+                    const item = DIALOGUE_DATA[currentIndex];
+                    processDialogueItem(item);
+                    currentIndex++;
+                    stepIndicator.innerHTML = `<em>${currentIndex}</em> / <span>${DIALOGUE_DATA.length}</span>`;
+                    progressHint.textContent = `⏩ 回顾中 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+                    await new Promise(r => setTimeout(r, 60));
+                    if (item.bgm) switchSceneBgm(item.bgm, item.bgmFile, false);
+                    // 遇到问询：在这里停下，把判断权交给玩家（而不是一股脑跳到结尾）
+                    if (item.ask && ASKS[item.ask]) {
+                        pendingAskId = item.ask;
+                        stoppedAtAsk = true;
+                        break;
+                    }
+                }
+                if (!stoppedAtAsk) {
+                    // 没有再遇到提问 → 整段回顾完成
+                    scrollToBottom(true);
+                    fastForwarding = false;
+                    btnContinue.disabled = true;
+                    btnContinue.textContent = '✓ 已读完';
+                    btnSkipAll.disabled = true;
+                    btnSkipAll.textContent = '✓ 已回顾';
+                    btnAutoPlay.disabled = true;
+                    btnAutoPlay.textContent = '✓ 已播放';
+                    btnAutoPlay.classList.add('completed');
+                    btnReset.disabled = false;
+                    progressHint.textContent = '📖 故事碎片已完整呈现。';
+                    markReviewed(storyId);
+                    updateAutoPlayUI('completed');
+                }
+            } catch (e) { console.error(e); }
+            finally {
+                isAnimating = false;
+                fastForwarding = false;
+                if (stoppedAtAsk) {
+                    // 停在提问处：保留按钮禁用态，交给 openAsk 接手
+                    btnContinue.disabled = true;
+                    btnSkipAll.disabled = true;
+                    btnAutoPlay.disabled = false;
+                    btnReset.disabled = false;
+                    const id = pendingAskId; pendingAskId = null;
+                    if (id) setTimeout(() => openAsk(id), 650);
+                } else if (currentIndex < DIALOGUE_DATA.length) {
+                    // 中途停下（理论不会发生，除非被打断）：恢复正常手动态
+                    btnSkipAll.disabled = false;
+                    btnAutoPlay.disabled = false;
+                    btnReset.disabled = false;
+                    btnContinue.disabled = false;
+                    btnContinue.textContent = '▶ 继续';
+                    btnSkipAll.textContent = '⏩ 回顾全部';
+                    updateAutoPlayUI('idle');
+                }
+                // currentIndex >= length 时：完成态由 try 块已设置，这里不再改动按钮
+            }
+        }
+
+        // ---------- 重置 ----------
+        function resetDialogue() {
+            if (isAnimating) return;
+            forceCloseAsk();
+            pendingAskId = null;
+            // 重来一次时，之前"拼错几次"的账也清零，线索从头给起
+            for (const k of Object.keys(askRetries)) delete askRetries[k];
+            unmarkReviewed(storyId);
+            if (autoPlayTimer) { clearTimeout(autoPlayTimer); autoPlayTimer = null; }
+            for (const key of involvedKeys) {
+                roleState[key].side = CHARACTERS[key].side || 'left';
+                roleState[key].order = CHARACTERS[key].order || 0;
+                currentPortraits[key] = CHARACTERS[key].defaultAvatar;
+                const el = roleElements[key];
+                const img = el.querySelector('img');
+                if (img) {
+                    const placeholder = el.querySelector('.placeholder-avatar');
+                    if (placeholder) placeholder.remove();
+                    img.style.display = '';
+                    img.src = getImagePath(currentPortraits[key]);
+                }
+            }
+            while (dialogueWrap.firstChild) dialogueWrap.removeChild(dialogueWrap.firstChild);
+            dialogueWrap.appendChild(dialogueEmpty);
+            currentIndex = 0;
+            btnContinue.disabled = false;
+            btnContinue.textContent = '▶ 继续';
+            btnSkipAll.disabled = false;
+            btnSkipAll.textContent = '⏩ 回顾全部';
+            btnReset.disabled = false;
+            stepIndicator.innerHTML = `<em>0</em> / <span>${DIALOGUE_DATA.length}</span>`;
+            progressHint.textContent = `点击下方按钮推进对话 · 共 ${DIALOGUE_DATA.length} 句`;
+            updateAutoPlayUI('idle');
+            const firstSpeaker = DIALOGUE_DATA[0]?.speaker || involvedKeys[0];
+            renderRoles(firstSpeaker);
+            dialogueWrap.scrollTop = 0;
+        }
+
+        // ---------- 已读标记（播放完一次后，下次跳转直接展示全部） ----------
+        const REVIEWED_KEY = 'spg_story_reviewed_v1';
+        function getReviewedSet() {
+            try { return new Set(JSON.parse(localStorage.getItem(REVIEWED_KEY) || '[]')); }
+            catch (e) { return new Set(); }
+        }
+        function isReviewed(id) { return getReviewedSet().has(id); }
+        // 清除某段故事的已读标记（用于「⟲ 重来」，与主界面「清空记录」语义一致）
+        function unmarkReviewed(id) {
+            try {
+                const s = getReviewedSet(); s.delete(id);
+                localStorage.setItem(REVIEWED_KEY, JSON.stringify(Array.from(s)));
+            } catch (e) {}
+        }
+        function markReviewed(id) {
+            try {
+                const s = getReviewedSet(); s.add(id);
+                localStorage.setItem(REVIEWED_KEY, JSON.stringify(Array.from(s)));
+            } catch (e) {}
+        }
+
+        // 直接把全部文段铺出来（无弹入动画、瞬时滚到底），用于「已读过的档案再次打开」
+        function showAllInstant() {
+            fastForwarding = true;
+            instantReveal = true;
+            while (dialogueWrap.firstChild) dialogueWrap.removeChild(dialogueWrap.firstChild);
+            for (const item of DIALOGUE_DATA) {
+                processDialogueItem(item);
+                // 已读档案的「完整记录」：把每个问询「回答正确以后」的分支演出也补上，
+                // 否则从主页返回再打开时这几段对话会消失。只补非彩蛋(=真正回答正确、推进了主线)的已见分支。
+                if (item.ask && ASKS[item.ask]) {
+                    const cfg = ASKS[item.ask];
+                    const seen = getSeenList(item.ask);
+                    const hit = (cfg.branches || []).find(b => !b.egg && b.tag && seen.includes(b.tag));
+                    if (hit && Array.isArray(hit.lines)) {
+                        for (const ln of hit.lines) processDialogueItem(ln);
+                    }
+                }
+            }
+            currentIndex = DIALOGUE_DATA.length;
+            stepIndicator.innerHTML = `<em>${DIALOGUE_DATA.length}</em> / <span>${DIALOGUE_DATA.length}</span>`;
+            instantReveal = false;
+            fastForwarding = false;
+            markReviewed(storyId);
+            btnContinue.disabled = true; btnContinue.textContent = '✓ 已读完';
+            btnSkipAll.disabled = true; btnSkipAll.textContent = '✓ 已回顾';
+            btnAutoPlay.disabled = true; btnAutoPlay.textContent = '✓ 已播放'; btnAutoPlay.classList.add('completed');
+            progressHint.textContent = '📖 故事碎片已完整呈现。';
+            scrollToBottom(true);
+        }
+
+        // =================================================================
+        //  开场演出：标题卡
+        //  按档案 id 配置，没配的档案照常直接进页面。
+        //  节奏：压暗 → 模糊横杠展开 → 字从两边往中间合 → 停留 → 向两边分散（分散一开始即解锁）
+        // =================================================================
+        // 用法：'档案id': { text: '大字', sub: '下方小字（可省略）', color: '大字颜色（可省略，默认米白）' }
+        // color 支持 #rrggbb / #rgb / rgb() / 颜色名，写什么色背后的辉光就跟着变成什么色
+        // 开场大字（页面刚打开时播）；问询开始时另有一张「审问开始」大字，写在每条 asks 配置里，两者不冲突
+        const TITLE_CARDS = {
+            // 问询页开场：按档案 id 配置，未配置的档案直接进页面（照 story-player 的写法，加一行即可）
+            // 每条可加 se:'文件名' 自定义开场音效（默认 CNstart；se:null 关闭）；填文件名会自动拼 bgm/se/ 目录
+            'D1H17M40-GA-1-2': { text: '审问：好奇的事', sub: 'D1H17M40 · 关于那个男人' },
+			//'D2026921-H12M35': { text: '审问：关于更新', sub: 'D2026921-H12M35 · 关于更新',color:'#A52A2A' },
+        };
+        const TC_DEFAULT_COLOR = '#ded6c4';   // 没写 color 时的默认色（米白）
+        const TC_GLOW_ALPHA = 0.34;           // 辉光透明度（辉光色 = 大字颜色 + 这个透明度）
+
+        const titleCardEl = document.getElementById('titleCard');
+        const tcTextEl = document.getElementById('tcText');
+        const tcSubEl = document.getElementById('tcSub');
+        const appCard = document.getElementById('app');
+        const controlsRow = document.getElementById('controlsRow');
+        const CONTROLS_MAX_H = 110;   // 与控制条的 CSS max-height 保持一致（收放动画要用它换算）
+
+        const TC_STEP = 34;        // 逐字错峰间隔
+        const TC_CHAR_MS = 620;    // 单个字符飞到位的时间（与 CSS transition 对齐）
+        const TC_ENTER_AT = 260;   // 覆盖层淡入多久后开始合拢
+        const TC_HOLD = 780;       // 合拢后停留多久再散场
+        // 黑幕淡入 / 淡出：这两个数必须与 CSS 里 .title-card 的 opacity 过渡时长一致
+        const TC_FADE_IN = 450;        // .title-card.show 的 opacity .45s
+        const TC_FADE_OUT = 600;       // .title-card 的 opacity .6s
+        const TC_FADE_OUT_AT = 140;    // 散场开始后多久才开始淡出黑幕（让字先裂开一点）
+
+        // 把配置的 color 拆成 "r,g,b"，用来生成同色辉光；解析不了就返回 null（走默认黑辉光）
+        function tcColorToRgb(str) {
+            let s = (str || '').trim();
+            if (!s) return null;
+            if (/^#[0-9a-f]{3}$/i.test(s)) s = '#' + s[1] + s[1] + s[2] + s[2] + s[3] + s[3];
+            let m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(s);
+            if (m) return [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)].join(',');
+            m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(s);
+            if (m) return [+m[1], +m[2], +m[3]].map(Math.round).join(',');
+            // 颜色名之类：借一个临时节点让浏览器帮我们解析成 rgb()
+            const probe = document.createElement('span');
+            probe.style.display = 'none';
+            probe.style.color = s;
+            document.body.appendChild(probe);
+            const computed = getComputedStyle(probe).color;
+            probe.remove();
+            m = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)/i.exec(computed || '');
+            return m ? [+m[1], +m[2], +m[3]].map(Math.round).join(',') : null;
+        }
+
+        let titleCardPlaying = false;
+        let titleCardOnEnd = null;   // 演出结束（散场淡出后）要接着做的事，比如"回答成功"后接分支对话
+        let tcTimers = [];
+
+        function tcAfter(ms, fn) { tcTimers.push(setTimeout(fn, ms)); }
+        function clearTitleCardTimers() { tcTimers.forEach(clearTimeout); tcTimers = []; }
+
+        // 解锁：散场动画一开始就放开操作，玩家不用干等
+        function unlockTitleCard() {
+            if (!titleCardPlaying) return;
+            titleCardPlaying = false;
+            appCard.classList.remove('tc-locked');
+        }
+
+        function finishTitleCard() {
+            if (!titleCardEl.classList.contains('show')) return;
+            clearTitleCardTimers();
+            unlockTitleCard();
+            titleCardEl.classList.remove('assemble');
+            titleCardEl.classList.add('disperse');
+            // 覆盖层交还点击，避免挡住刚解锁的按钮（.show 摘掉后 CSS 本就是 none，这里再显式兜一次）
+            titleCardEl.style.pointerEvents = 'none';
+
+            // 黑幕淡出：等字先裂开一点再撤，视觉上是"字散开、黑幕跟着散掉"
+            tcAfter(TC_FADE_OUT_AT, () => {
+                titleCardEl.classList.remove('show');   // 触发 opacity 1 → 0（visibility 会在淡出结束后自动转 hidden）
+            });
+            // 淡出走完才摘 disperse：中途摘掉会让字和横杠的样式跳回"待命态"，虽然看不见但没必要
+            tcAfter(TC_FADE_OUT_AT + TC_FADE_OUT + 80, () => {
+                titleCardEl.classList.remove('disperse');
+                titleCardEl.style.pointerEvents = '';
+                // 演出彻底结束，接着做该做的事（如"回答成功"后接分支对话）；只触发一次
+                const cb = titleCardOnEnd;
+                titleCardOnEnd = null;
+                if (typeof cb === 'function') cb();
+            });
+        }
+
+        // —— 开场大字音效 ——
+        // 默认播 CNstart；cfg.se 可自定义（填音效文件名，自动拼 bgm/se/ 目录；含斜杠则视为完整相对路径）；
+        // 显式 se:null 则不播。thinking 位于 newweb/故事碎片/，SE_DIR 相对当前页解析。
+        const SE_DIR = new URL('../../bgm/se/', location.href).href;
+        const SE_DEFAULT_TITLE = 'CNstart';   // 档案/标题开场默认音效
+        const SE_DEFAULT_ASK = 'UIstart';      // 审问开场默认音效
+        const SE_DEFAULT_BURST = 'Correct';    // 回答成功（爆开）大字默认音效
+        let _seUnlocked = false;
+        const _sePending = [];
+        function _seFire(src) {
+            try {
+                const a = new Audio(src);
+                a.volume = 0.85;
+                const p = a.play();
+                if (p && p.catch) p.catch(() => {});
+            } catch (e) { /* 文件缺失或策略拦截，忽略 */ }
+        }
+        function _seUnlock() {
+            if (_seUnlocked) return;
+            _seUnlocked = true;
+            while (_sePending.length) _seFire(_sePending.shift());
+        }
+        ['pointerdown', 'keydown', 'touchstart'].forEach(ev =>
+            window.addEventListener(ev, _seUnlock, { once: true, passive: true }));
+        function playTitleSe(se, fallback) {
+            if (se === null || se === false) return;                 // 显式关闭
+            const name = (typeof se === 'string' && se.trim()) ? se.trim() : (fallback || SE_DEFAULT_TITLE);
+            const src = name.includes('/')
+                ? new URL(name, location.href).href
+                : SE_DIR + name + (name.toLowerCase().endsWith('.mp3') ? '' : '.mp3');
+            if (_seUnlocked) { _seFire(src); return; }
+            // 先试着播（若此刻已有用户手势则成功）；被自动播放策略拦截则等首次手势补播
+            try {
+                const a = new Audio(src);
+                a.volume = 0.85;
+                const p = a.play();
+                if (p && p.catch) p.catch(() => { _sePending.push(src); });
+            } catch (e) { _sePending.push(src); }
+        }
+
+        function playTitleCard(cfg, mode, onEnd, defaultSe) {
+            const raw = (cfg.text || '').trim();
+            if (!raw) return;
+            const burst = mode === 'burst';          // 爆开式：从中心炸开（回答成功等）；否则两侧飞入（默认）
+            titleCardOnEnd = (typeof onEnd === 'function') ? onEnd : null;
+
+            // 开场音效：标题卡类（非 burst）默认播该场景音效（档案开场 CNstart / 审问开场 UIstart，由 defaultSe 决定）；
+            // burst（回答成功等）默认播 Correct，显式配 se 可换、se:null 可强制关闭。
+            if (burst) { playTitleSe(cfg.se, SE_DEFAULT_BURST); }
+            else { playTitleSe(cfg.se, defaultSe || SE_DEFAULT_TITLE); }
+
+            tcTextEl.innerHTML = '';
+            tcSubEl.textContent = cfg.sub || '';
+            tcSubEl.style.display = cfg.sub ? '' : 'none';
+
+            // 大字颜色：未配置就回落默认米白；辉光用同色低透明度，暗背景下会有淡淡的同色光晕
+            const color = (cfg.color || TC_DEFAULT_COLOR).trim();
+            const rgb = tcColorToRgb(color);
+            tcTextEl.style.setProperty('--tc-color', color);
+            tcTextEl.style.setProperty('--tc-glow', rgb ? `rgba(${rgb},${TC_GLOW_ALPHA})` : 'rgba(0,0,0,0.9)');
+            // 背景横杠辉光也跟随大字颜色：中间实、两侧虚，未解析出颜色则用默认米白
+            if (rgb) {
+                titleCardEl.style.setProperty('--tc-bar-mid', `rgba(${rgb},0.34)`);
+                titleCardEl.style.setProperty('--tc-bar-edge', `rgba(${rgb},0.18)`);
+            } else {
+                titleCardEl.style.setProperty('--tc-bar-mid', 'rgba(214,204,184,0.34)');
+                titleCardEl.style.setProperty('--tc-bar-edge', 'rgba(150,140,120,0.20)');
+            }
+
+            // 拆成左右两半：左半从屏幕左侧飞入，右半从右侧飞入，往中间合
+            const chars = Array.from(raw);
+            const half = Math.ceil(chars.length / 2);
+            chars.forEach((ch, i) => {
+                const span = document.createElement('span');
+                span.className = 'tc-char';
+                span.textContent = ch === ' ' ? '\u00A0' : ch;   // 空格也要占位，不然会被压掉
+                const fromLeft = i < half;
+                span.style.setProperty('--fx', fromLeft ? '-72vw' : '72vw');
+                // 合拢：外侧的字符先出发，内侧最后补上 → 视觉上是两股字流涌向中间
+                const dIn = fromLeft ? i * TC_STEP : (chars.length - 1 - i) * TC_STEP;
+                // 散场：反过来，靠中间的字符先裂开，向两边飞散
+                const dOut = fromLeft ? (half - 1 - i) * TC_STEP : (i - half) * TC_STEP;
+                span.style.setProperty('--d', dIn + 'ms');
+                span.style.setProperty('--d2', dOut + 'ms');
+                tcTextEl.appendChild(span);
+            });
+
+            let maxIn;
+            if (burst) {
+                // 爆开式：先量出每个字"最终位置相对整行中心的偏移"，待命态把它拉回正中心并带上扇形角度；
+                // 合拢时由内向外波及。文本此刻已布局（标题卡 visibility:hidden 仍占位），测量可靠。
+                const textRect = tcTextEl.getBoundingClientRect();
+                const cx = textRect.left + textRect.width / 2;
+                const cy = textRect.top + textRect.height / 2;
+                const n = chars.length;
+                const center = (n - 1) / 2;
+                const BURST_STEP = 26;
+                Array.from(tcTextEl.children).forEach((span, i) => {
+                    const r = span.getBoundingClientRect();
+                    const bx = (r.left + r.width / 2) - cx;
+                    const by = (r.top + r.height / 2) - cy;
+                    const ang = (i - center) * 26;   // 离中心越远张角越大，花苞拧得越开，绽开时旋转归位更明显
+                    span.style.setProperty('--bx', bx + 'px');
+                    span.style.setProperty('--by', by + 'px');
+                    span.style.setProperty('--ang', ang + 'deg');
+                    const d = Math.abs(i - center) * BURST_STEP;   // 由中心向外波及，像花瓣从蕊心依次张开
+                    span.style.setProperty('--d', d + 'ms');
+                    span.style.setProperty('--d2', d + 'ms');
+                });
+                maxIn = center * BURST_STEP;
+            } else {
+                maxIn = Math.max(half - 1, chars.length - 1 - half) * TC_STEP;
+            }
+
+            const assembleEnd = TC_ENTER_AT + maxIn + TC_CHAR_MS;   // 全部合拢完成
+
+            titleCardPlaying = true;
+            appCard.classList.add('tc-locked');
+            clearTitleCardTimers();   // 万一上一场演出的淡出定时器还在跑，先清掉，别让它把新演出收走
+            titleCardEl.style.pointerEvents = '';
+            titleCardEl.classList.remove('disperse', 'assemble', 'burst');
+            if (burst) titleCardEl.classList.add('burst');
+            titleCardEl.classList.add('show');   // 触发黑幕淡入（opacity 0 → 1）
+
+            tcAfter(TC_ENTER_AT, () => titleCardEl.classList.add('assemble'));
+            tcAfter(assembleEnd + TC_HOLD, finishTitleCard);
+        }
+
+        // 点击 / 空格：跳过演出（只结束演出本身，不会推进对话）
+        titleCardEl.addEventListener('click', finishTitleCard);
+
+        // ---------- 初始化 ----------
+        // =================================================================
+        //  🕵️  问询系统：拼词组
+        //  在 dialogue[] 某句上写 ask:'ASK-x' → 该句演完后展开面板；
+        //  玩家把词拖进空槽 → 「就这样问」 → 命中分支 → 演出该分支对话 → 回到主线。
+        // =================================================================
+        const askPanel    = document.getElementById('askPanel');
+        const askSentence = document.getElementById('askSentence');
+        const askWordsEl  = document.getElementById('askWords');
+        const askSeenEl   = document.getElementById('askSeen');
+        const askConfirm  = document.getElementById('askConfirm');
+        const askClear    = document.getElementById('askClear');
+        const askRefresh  = document.getElementById('askRefresh');
+
+        const ASKS = story.asks || {};
+        const SEEN_KEY = 'spg_thinking_seen_v1';   // 记录见过的分支（spg_ 前缀约定）
+
+        function getSeenMap() {
+            try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}'); } catch (e) { return {}; }
+        }
+        function getSeenList(askId) { const m = getSeenMap(); return Array.isArray(m[askId]) ? m[askId] : []; }
+        function markBranchSeen(askId, tag) {
+            if (!tag) return;
+            try {
+                const m = getSeenMap();
+                const list = Array.isArray(m[askId]) ? m[askId] : [];
+                if (!list.includes(tag)) list.push(tag);
+                m[askId] = list;
+                localStorage.setItem(SEEN_KEY, JSON.stringify(m));
+            } catch (e) {}
+        }
+
+        let askOpen = false;          // 面板是否展开
+        let branchPlaying = false;    // 分支对话正在演出
+        let currentAskId = null;
+        let currentAsk = null;
+        let slotEls = [];             // 槽 DOM
+        let slotValues = [];          // 每槽：{ text, idx } 或 null
+        let usedIdx = new Set();      // 已被放进槽里的词下标
+        let heldIdx = null;           // 点击通道：手上拿着的词
+        let dragPayload = null;       // 拖拽通道：{ idx } 或 { fromSlot } 或 null
+        let branchTimer = null;
+        let askReopenTimer = null;    // 拼错后延迟重开面板的定时器（重置时要清掉，否则会诈尸）
+        let askMaxTimer = null;       // 展开动画跑完后解除 max-height 上限
+        const askRetries = {};        // 每个问询失败过几次（用来取递进的线索）
+        let autoResumeAfterAsk = false;   // 进问询前是否开着自动播放（答完自动接回）
+
+        // fallback 不是"分支结局"，而是"这句话没问动他"：
+        // 演完线索台词后会回到同一问重新提问，主线绝不往前走。
+        // 写法两种：单个对象（每次都同一段）／数组（按失败次数递进，最后一段循环用）
+        function getFallbackSteps(cfg) {
+            const fb = cfg.fallback;
+            if (!fb) return [];
+            return Array.isArray(fb) ? fb : [fb];
+        }
+
+        // 失败重问不计入"已见分支"，否则玩家会因为拼错而白拿进度
+        function askTotalBranches(cfg) {
+            return (cfg.branches || []).length;
+        }
+
+        // ---------- 渲染：提示句 + 空槽 ----------
+        function buildAskSentence(cfg) {
+            askSentence.innerHTML = '';
+            slotEls = [];
+            slotValues = [];
+            const tokens = String(cfg.prompt || '').split(/(\{\d*\})/);
+            for (const tk of tokens) {
+                if (!tk) continue;
+                if (/^\{\d*\}$/.test(tk)) {
+                    const slot = document.createElement('span');
+                    slot.className = 'ask-slot empty';
+                    slot.dataset.slot = String(slotEls.length);
+                    wireSlot(slot, slotEls.length);
+                    askSentence.appendChild(slot);
+                    slotEls.push(slot);
+                    slotValues.push(null);
+                } else {
+                    askSentence.appendChild(document.createTextNode(tk));
+                }
+            }
+        }
+
+        // ---------- 渲染：词池（已被占用的词不再显示，语义是"移动"而不是"复制"） ----------
+        function renderAskWords() {
+            askWordsEl.innerHTML = '';
+            const words = currentAsk.words || [];
+            words.forEach((w, idx) => {
+                if (usedIdx.has(idx)) return;
+                const chip = document.createElement('span');
+                chip.className = 'ask-word';
+                chip.textContent = w;
+                chip.dataset.idx = String(idx);
+                chip.draggable = true;
+                if (heldIdx === idx) chip.classList.add('picked');
+                chip.addEventListener('click', () => {
+                    heldIdx = (heldIdx === idx) ? null : idx;
+                    renderAskWords();
+                    refreshSlotHints();
+                });
+                chip.addEventListener('dragstart', (e) => {
+                    dragPayload = { idx: idx };
+                    chip.classList.add('dragging');
+                    heldIdx = null;
+                    try { e.dataTransfer.setData('text/plain', w); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
+                });
+                chip.addEventListener('dragend', () => { chip.classList.remove('dragging'); dragPayload = null; });
+                askWordsEl.appendChild(chip);
+            });
+        }
+
+        function refreshSlotHints() {
+            slotEls.forEach(el => el.classList.toggle('pickable', heldIdx !== null && !el.classList.contains('filled')));
+        }
+
+        // ---------- 装填 / 退回 ----------
+        function fillSlot(slotPos, wordIdx) {
+            if (slotValues[slotPos]) releaseSlot(slotPos);          // 槽里已有词 → 先退回
+            for (let i = 0; i < slotValues.length; i++) {           // 同一个词不能占两个槽
+                if (i !== slotPos && slotValues[i] && slotValues[i].idx === wordIdx) releaseSlot(i);
+            }
+            slotValues[slotPos] = { text: currentAsk.words[wordIdx], idx: wordIdx };
+            usedIdx.add(wordIdx);
+            paintSlot(slotPos);
+            renderAskWords();
+            refreshSlotHints();
+        }
+        function releaseSlot(slotPos) {
+            const v = slotValues[slotPos];
+            if (!v) return;
+            usedIdx.delete(v.idx);
+            slotValues[slotPos] = null;
+            paintSlot(slotPos);
+        }
+        function paintSlot(slotPos) {
+            const el = slotEls[slotPos];
+            const v = slotValues[slotPos];
+            if (v) {
+                el.textContent = v.text;
+                el.classList.remove('empty');
+                el.classList.add('filled');
+                el.draggable = true;      // 填好之后才能再拖出去换槽 / 拖回词池
+            } else {
+                el.textContent = '';
+                el.classList.add('empty');
+                el.classList.remove('filled');
+                el.draggable = false;
+            }
+        }
+        function clearAllSlots() {
+            for (let i = 0; i < slotValues.length; i++) releaseSlot(i);
+            heldIdx = null;
+            renderAskWords();
+            refreshSlotHints();
+        }
+
+        // ---------- 槽的事件（拖放 + 点击两条通道） ----------
+        function wireSlot(el, slotPos) {
+            el.addEventListener('click', () => {
+                if (slotValues[slotPos]) { releaseSlot(slotPos); renderAskWords(); refreshSlotHints(); return; }
+                if (heldIdx !== null) { fillSlot(slotPos, heldIdx); heldIdx = null; renderAskWords(); refreshSlotHints(); }
+            });
+            el.addEventListener('dragover', (e) => { e.preventDefault(); el.classList.add('hover'); });
+            el.addEventListener('dragleave', () => el.classList.remove('hover'));
+            el.addEventListener('drop', (e) => {
+                e.preventDefault(); el.classList.remove('hover');
+                if (!dragPayload) return;
+                if (dragPayload.fromSlot !== undefined) {
+                    const from = dragPayload.fromSlot;
+                    if (from === slotPos) return;
+                    const a = slotValues[from], b = slotValues[slotPos];
+                    slotValues[from] = b; slotValues[slotPos] = a;
+                    paintSlot(from); paintSlot(slotPos);
+                } else {
+                    fillSlot(slotPos, dragPayload.idx);
+                }
+                dragPayload = null;
+            });
+            // 已填好的槽里那个词也能再拖走（换槽 / 拖回词池）
+            el.addEventListener('dragstart', (e) => {
+                if (!slotValues[slotPos]) { e.preventDefault(); return; }
+                dragPayload = { fromSlot: slotPos };
+                try { e.dataTransfer.setData('text/plain', slotValues[slotPos].text); e.dataTransfer.effectAllowed = 'move'; } catch (err) {}
+            });
+            el.addEventListener('dragend', () => { dragPayload = null; });
+        }
+
+        // 词池也收 drop：把槽里的词拖回来 = 退回
+        askWordsEl.addEventListener('dragover', (e) => e.preventDefault());
+        askWordsEl.addEventListener('drop', (e) => {
+            e.preventDefault();
+            if (dragPayload && dragPayload.fromSlot !== undefined) {
+                releaseSlot(dragPayload.fromSlot);
+                renderAskWords();
+                refreshSlotHints();
+            }
+            dragPayload = null;
+        });
+
+        // ---------- 打开 / 关闭 ----------
+        // 底部控制条收起 / 放回来：问询期间整条藏起来，让玩家只面对这一问
+        let controlsStowTimer = null;
+        function setControlsStowed(on) {
+            if (controlsStowTimer) { clearTimeout(controlsStowTimer); controlsStowTimer = null; }
+            controlsRow.classList.toggle('stowed', on);
+        }
+
+        // reopen = true 表示这是"拼错之后的重问"：不再甩开场大字，只把面板重新展开
+        function openAsk(askId, reopen) {
+            const cfg = ASKS[askId];
+            if (!cfg || askOpen) return;
+            currentAskId = askId;
+            currentAsk = cfg;
+            usedIdx = new Set();
+            heldIdx = null;
+
+            buildAskSentence(cfg);
+            renderAskWords();
+            refreshSlotHints();
+
+            const seenN = getSeenList(askId).length;
+            const tries = askRetries[askId] || 0;
+            askSeenEl.textContent = `已见分支 ${seenN} / ${askTotalBranches(cfg)}`
+                + (tries > 0 ? `　·　第 ${tries + 1} 次提问` : '');
+
+            // 展开：先把 max-height 钉成具体数值（none 无法参与过渡），强制 reflow 记下起点，
+            // 再交给 CSS 的目标值 520px，过渡才跑得起来。动画结束后解成 none，长内容不会被裁。
+            askPanel.style.maxHeight = '0px';
+            void askPanel.offsetWidth;
+            askPanel.classList.add('open');
+            askPanel.style.maxHeight = '';
+            if (askMaxTimer) { clearTimeout(askMaxTimer); askMaxTimer = null; }
+            askMaxTimer = setTimeout(() => {
+                askMaxTimer = null;
+                if (askPanel.classList.contains('open')) askPanel.style.maxHeight = 'none';
+            }, 520);
+            askOpen = true;
+            setControlsStowed(true);
+            relayoutForAsk(true);
+            // 如果玩家进问询前开着自动播放，先记下来，答完自动接回去，不用他再点一次
+            // 注意这一段必须放在下面禁用按钮之前：updateAutoPlayUI 会重算按钮的禁用态
+            if (autoPlayState === 'playing' || autoPlayState === 'paused') {
+                autoResumeAfterAsk = true;
+                stopAutoPlay();
+                updateAutoPlayUI('idle');
+            }
+            btnContinue.disabled = true;
+            btnSkipAll.disabled = true;
+            // 自动播放状态下被 stow 了，提示语自己写，不要被 UI 更新覆盖
+            progressHint.textContent = tries > 0
+                ? '🕵️ 推理有问题。可以试着换种拼法。'
+                : '🕵️ 把词拖进空处，做出你的推理。';
+
+            // 开场大字：标题 / 小字 / 颜色全都来自配置，改配置就能换。重问时不重复播。
+            if (!reopen) playTitleCard({ text: cfg.title || '审问开始', sub: cfg.sub || '', color: cfg.color || '', se: cfg.se }, undefined, undefined, SE_DEFAULT_ASK);
+        }
+
+        function closeAsk() {
+            // 收起：先把当前真实高度钉成具体数值（此时内联可能是 none），reflow 后再清掉内联、
+            // 让 CSS 的 max-height:0 成为终点，过渡才跑得起来。
+            if (askMaxTimer) { clearTimeout(askMaxTimer); askMaxTimer = null; }
+            askPanel.style.maxHeight = askPanel.scrollHeight + 'px';
+            void askPanel.offsetWidth;
+            askPanel.classList.remove('open');
+            askPanel.style.maxHeight = '';
+            askOpen = false;
+            currentAsk = null;
+            heldIdx = null;
+            // 立即退出问询态：对话区/舞台高度用 CSS 过渡平滑涨回（见 .dialogue-wrap / .stage 的
+            // transition），面板同时收起，二者同步收放，卡片高度不会瞬间超过提问态，窗口滚动条不闪、也不跳变。
+            relayoutForAsk(false);
+        }
+
+        // 问询态切换后舞台高度变了 → 重新居中头像、并把对话滚到底
+        function relayoutForAsk(on) {
+            appCard.classList.toggle('asking', on);
+            requestAnimationFrame(() => {
+                if (currentSpeaker) renderRoles(currentSpeaker);
+                scrollToBottom(true);
+            });
+        }
+
+        function forceCloseAsk() {
+            if (branchTimer) { clearTimeout(branchTimer); branchTimer = null; }
+            if (askReopenTimer) { clearTimeout(askReopenTimer); askReopenTimer = null; }   // 否则重置后面板会诈尸
+            if (askMaxTimer) { clearTimeout(askMaxTimer); askMaxTimer = null; }
+            branchPlaying = false;
+            autoResumeAfterAsk = false;
+            setControlsStowed(false);
+            closeAsk();
+        }
+
+        // ---------- 判定 + 分支演出 ----------
+        function matchBranch(match, seq) {
+            if (!Array.isArray(match) || match.length !== seq.length) return false;
+            for (let i = 0; i < match.length; i++) {
+                const m = match[i];
+                if (m === null || m === undefined || m === '*') continue;
+                if (m !== seq[i]) return false;
+            }
+            return true;
+        }
+
+        // dead = true 表示这段对话是"没成立的拼句"，视觉上作废，让玩家看清这条路走不通
+        function playBranchLines(lines, onDone, dead) {
+            if (!lines || lines.length === 0) { onDone(); return; }
+            branchPlaying = true;
+            btnContinue.disabled = true;
+            btnSkipAll.disabled = true;
+            let i = 0;
+            const step = () => {
+                if (i >= lines.length) {
+                    branchPlaying = false;
+                    btnSkipAll.disabled = false;
+                    onDone();
+                    return;
+                }
+                const el = processDialogueItem(lines[i]);
+                if (dead && el) el.classList.add('branch-dead');
+                i++;
+                branchTimer = setTimeout(step, 950);
+            };
+            step();
+        }
+
+        function confirmAsk() {
+            if (!askOpen || branchPlaying) return;
+            const seq = slotValues.map(v => v ? v.text : null);
+            if (seq.some(v => v === null)) {
+                askPanel.classList.remove('shake');
+                void askPanel.offsetWidth;          // 强制重排，让动画能重播
+                askPanel.classList.add('shake');
+                progressHint.textContent = '⚠️ 还有空着的槽。';
+                return;
+            }
+            const cfg = currentAsk;
+            // 先看有没有命中真实分支；命中才算过关
+            const hit = (cfg.branches || []).find(b => matchBranch(b.match, seq));
+
+            const afterDone = () => {
+                setControlsStowed(false);
+                if (currentIndex >= DIALOGUE_DATA.length) {
+                    stopAutoPlay();
+                    updateAutoPlayUI('completed');
+                    autoResumeAfterAsk = false;
+                    return;
+                }
+                // 进来时开着自动播放 → 直接接回去，不用玩家再点；否则切成手动一条一条
+                if (autoResumeAfterAsk) {
+                    autoResumeAfterAsk = false;
+                    controlsStowTimer = setTimeout(() => {
+                        controlsStowTimer = null;
+                        updateAutoPlayUI('playing');
+                        setTimeout(autoPlayNext, 200);
+                    }, 320);   // 等控制条放回来再跑起来
+                    return;
+                }
+                stopAutoPlay();
+                updateAutoPlayUI('idle');
+                btnContinue.disabled = false;
+                btnContinue.textContent = '▶ 继续';
+                progressHint.textContent = `点击继续 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+            };
+
+            if (hit) {
+                const tag = (hit && hit.tag) || '支线';
+                markBranchSeen(currentAskId, tag);
+                closeAsk();
+                if (hit.egg) {
+                    // 彩蛋：演出也算"没回答正确"，演完回到上一问重新提问，主线一步都不往前走
+                    const askId = currentAskId;
+                    progressHint.textContent = `🥚 彩蛋：${tag}　——　演出中……`;
+                    playBranchLines(hit.lines, () => {
+                        btnSkipAll.disabled = true;
+                        askReopenTimer = setTimeout(() => { askReopenTimer = null; openAsk(askId, true); }, 900);
+                    });
+                    return;
+                }
+                progressHint.textContent = `🕵️ 分支：${tag}　——　演出中……`;
+                // 回答正确：先放一张"从中心爆开"的庆祝大字，演完再接分支对话。
+                // 文字/副标/颜色都可自定义：在 asks 配置里给该问加 success:{ text, sub, color } 即可。
+                const sc = (cfg.success && typeof cfg.success === 'object') ? cfg.success : {};
+                playTitleCard({
+                    text: sc.text || '推理成立',
+                    sub: sc.sub || '',
+                    color: sc.color || '#8fbf7a',
+                    se: sc.se
+                }, 'burst', () => {
+                    playBranchLines(hit.lines, afterDone);
+                });
+                return;
+            }
+
+            // ---- 没拼对：不算过关。演出对手的反应（当线索），然后回到这一问重新提问 ----
+            const askId = currentAskId;
+            askRetries[askId] = (askRetries[askId] || 0) + 1;
+            const steps = getFallbackSteps(cfg);
+            const step = steps.length
+                ? steps[Math.min(askRetries[askId], steps.length) - 1]   // 错得越多，线索给得越明
+                : null;
+            closeAsk();
+            progressHint.textContent = '🕵️ 推理有问题。可以试着换种拼法。';
+            playBranchLines(step && step.lines, () => {
+                // 主线一步都不推进，直接重开同一问，让玩家自己推断出该问的那句话
+                btnSkipAll.disabled = true;
+                askReopenTimer = setTimeout(() => { askReopenTimer = null; openAsk(askId, true); }, 900);
+            }, true);
+        }
+
+        askConfirm.addEventListener('click', (e) => { e.stopPropagation(); confirmAsk(); });
+        askClear.addEventListener('click', (e) => { e.stopPropagation(); clearAllSlots(); });
+        askRefresh.addEventListener('click', (e) => { e.stopPropagation(); location.reload(); });
+
+        function init() {
+            loadCustomNames();
+            const firstSpeaker = DIALOGUE_DATA[0]?.speaker || involvedKeys[0];
+            renderRoles(firstSpeaker);
+            while (dialogueWrap.firstChild) dialogueWrap.removeChild(dialogueWrap.firstChild);
+            dialogueWrap.appendChild(dialogueEmpty);
+            stepIndicator.innerHTML = `<em>0</em> / <span>${DIALOGUE_DATA.length}</span>`;
+            progressHint.textContent = `点击下方按钮推进对话 · 共 ${DIALOGUE_DATA.length} 句`;
+
+            btnContinue.addEventListener('click', function() {
+                if (autoPlayState === 'playing' || autoPlayState === 'paused') {
+                    stopAutoPlay();
+                    updateAutoPlayUI('idle');
+                    if (currentIndex < DIALOGUE_DATA.length) {
+                        btnContinue.disabled = false;
+                        btnContinue.textContent = '▶ 继续';
+                        btnSkipAll.disabled = false;
+                        btnSkipAll.textContent = '⏩ 回顾全部';
+                        progressHint.textContent = `点击继续 · ${currentIndex}/${DIALOGUE_DATA.length}`;
+                    }
+                }
+                advanceDialogue();
+            });
+            btnSkipAll.addEventListener('click', skipAllDialogue);
+            btnAutoPlay.addEventListener('click', toggleAutoPlay);
+            btnReset.addEventListener('click', resetDialogue);
+
+            document.addEventListener('keydown', (e) => {
+                // 演出期间：空格 / 回车只用来跳过演出，不推进对话
+                if (titleCardPlaying) {
+                    if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); finishTitleCard(); }
+                    return;
+                }
+                if (e.key === ' ' || e.key === 'Enter') {
+                    if (document.activeElement?.tagName !== 'INPUT' && document.activeElement?.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                        if (autoPlayState === 'playing') { pauseAutoPlay(); return; }
+                        else if (autoPlayState === 'paused') { resumeAutoPlay(); return; }
+                        if (!btnContinue.disabled) advanceDialogue();
+                    }
+                }
+            });
+
+            document.querySelector('.rough-card').addEventListener('click', (e) => {
+                if (e.target.closest('button')) return;
+                if (autoPlayState === 'playing' || autoPlayState === 'paused') return;
+                if (!btnContinue.disabled) advanceDialogue();
+            });
+
+            console.log(`📜 播放器加载档案: ${storyId}，共 ${DIALOGUE_DATA.length} 句`);
+            console.log('📁 角色图片路径: ' + IMAGE_BASE);
+            console.log('🖼️ 消息图片路径: ' + MESSAGE_IMAGE_BASE);
+
+            // 已完整播放过的档案，再次打开时直接展示全部文段
+            if (isReviewed(storyId)) showAllInstant();
+
+            // 开场演出（只有配置了 TITLE_CARDS 的档案才会播）
+            const tcCfg = TITLE_CARDS[storyId];
+            if (tcCfg) playTitleCard(tcCfg);
+        }
+
+        // ---------- 窗口 resize 重定位角色 ----------
+        let resizeTimer;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimer);
+            resizeTimer = setTimeout(() => { if (currentSpeaker) renderRoles(currentSpeaker); }, 200);
+        });
+
+        document.addEventListener('DOMContentLoaded', init);
+
+        // =================================================================
+        //  🆕 CRT 滤镜开关（与其他页面共享同一 localStorage 键）
+        // =================================================================
+        const CRT_KEY = 'crt_filter_enabled';
+        const crtEl = document.getElementById('crtFilter');
+        const crtToggle = document.getElementById('crtToggle');
+
+        function setCRT(enabled) {
+            crtEl.classList.toggle('on', enabled);
+            document.body.classList.toggle('crt-on', enabled);
+            crtToggle.textContent = enabled ? 'CRT ON' : 'CRT OFF';
+            crtToggle.classList.toggle('active', enabled);
+            try { localStorage.setItem(CRT_KEY, enabled ? '1' : '0'); } catch (e) {}
+        }
+
+        crtToggle.addEventListener('click', (e) => {
+            e.stopPropagation();
+            setCRT(!crtEl.classList.contains('on'));
+        });
+
+        // 默认开启，除非用户手动关过
+        setCRT(localStorage.getItem(CRT_KEY) !== '0');
+        console.log('📺 CRT 滤镜已就绪。右上角按钮可切换。');
+
+        // =================================================================
+        //  🆕 返回主页按钮（可拖动，位置记忆，双击复位）
+        // =================================================================
+        const HOME_URL = '../../index.html';        // ← 若路径不同请修改
+        const BACK_POS_KEY = 'back_btn_pos_v1';     // 与其他页面共享的位置存储键
+        const BACK_DEFAULT = { x: 14, y: 14 };      // 默认位置：距左、距上（px）
+
+        const backBtn = document.getElementById('backBtn');
+
+        function applyBackPos(x, y) {
+            backBtn.style.left = x + 'px';
+            backBtn.style.top = y + 'px';
+            backBtn.style.right = 'auto';
+            backBtn.style.bottom = 'auto';
+        }
+
+        // 从 localStorage 恢复位置
+        (function restoreBackPos() {
+            let pos = null;
+            try {
+                const raw = localStorage.getItem(BACK_POS_KEY);
+                if (raw) pos = JSON.parse(raw);
+            } catch (e) {}
+            if (pos && typeof pos.x === 'number' && typeof pos.y === 'number') {
+                const maxX = window.innerWidth - 100;
+                const maxY = window.innerHeight - 40;
+                applyBackPos(Math.max(0, Math.min(maxX, pos.x)), Math.max(0, Math.min(maxY, pos.y)));
+            } else {
+                applyBackPos(BACK_DEFAULT.x, BACK_DEFAULT.y);
+            }
+        })();
+
+        // ---------- 拖动逻辑 ----------
+        let isDragging = false;
+        let dragOffsetX = 0, dragOffsetY = 0;
+        let startX = 0, startY = 0;
+        let hasMoved = false;
+
+        function beginDrag(clientX, clientY) {
+            const rect = backBtn.getBoundingClientRect();
+            dragOffsetX = clientX - rect.left;
+            dragOffsetY = clientY - rect.top;
+            startX = clientX;
+            startY = clientY;
+            hasMoved = false;
+            isDragging = true;
+            backBtn.classList.add('dragging');
+        }
+
+        function moveDrag(clientX, clientY) {
+            if (!isDragging) return;
+            const dx = clientX - startX;
+            const dy = clientY - startY;
+            if (Math.abs(dx) > 3 || Math.abs(dy) > 3) hasMoved = true;
+            let newLeft = clientX - dragOffsetX;
+            let newTop = clientY - dragOffsetY;
+            const maxX = window.innerWidth - backBtn.offsetWidth;
+            const maxY = window.innerHeight - backBtn.offsetHeight;
+            newLeft = Math.max(0, Math.min(maxX, newLeft));
+            newTop = Math.max(0, Math.min(maxY, newTop));
+            applyBackPos(newLeft, newTop);
+        }
+
+        function endDrag() {
+            if (!isDragging) return;
+            isDragging = false;
+            backBtn.classList.remove('dragging');
+            if (hasMoved) {
+                const rect = backBtn.getBoundingClientRect();
+                try {
+                    localStorage.setItem(BACK_POS_KEY, JSON.stringify({ x: rect.left, y: rect.top }));
+                } catch (e) {}
+            }
+        }
+
+        // 鼠标事件
+        backBtn.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            e.preventDefault();
+            beginDrag(e.clientX, e.clientY);
+        });
+        document.addEventListener('mousemove', (e) => { if (isDragging) moveDrag(e.clientX, e.clientY); });
+        document.addEventListener('mouseup', () => { if (isDragging) endDrag(); });
+
+        // 触屏事件
+        backBtn.addEventListener('touchstart', (e) => {
+            const t = e.touches[0];
+            beginDrag(t.clientX, t.clientY);
+        }, { passive: true });
+        document.addEventListener('touchmove', (e) => {
+            if (isDragging) {
+                const t = e.touches[0];
+                moveDrag(t.clientX, t.clientY);
+            }
+        }, { passive: true });
+        document.addEventListener('touchend', () => { if (isDragging) endDrag(); });
+
+        // ---------- 点击返回（拖动过则不触发）----------
+        function goHome() {
+            // 暂停所有进行中的操作，释放资源
+            try {
+                if (typeof stopAutoPlay === 'function') stopAutoPlay();
+                if (autoPlayTimer) { clearTimeout(autoPlayTimer); autoPlayTimer = null; }
+            } catch (err) { /* 忽略 */ }
+
+            // 尝试关闭当前标签页（若是被 window.open 打开，则能成功）
+            try { window.close(); } catch (err) { /* 忽略 */ }
+
+            // 若关闭失败，则延迟跳转回主页
+            // （如果 close 成功，下面的代码不会执行）
+            setTimeout(() => {
+                window.location.replace(HOME_URL);
+            }, 200);
+        }
+
+        backBtn.addEventListener('click', (e) => {
+            if (hasMoved) {
+                e.preventDefault();
+                e.stopPropagation();
+                hasMoved = false;
+                return;
+            }
+            e.stopPropagation();
+            goHome();
+        });
+
+        // ---------- 双击复位到默认位置 ----------
+        backBtn.addEventListener('dblclick', (e) => {
+            e.stopPropagation();
+            try { localStorage.removeItem(BACK_POS_KEY); } catch (err) {}
+            applyBackPos(BACK_DEFAULT.x, BACK_DEFAULT.y);
+        });
+
+        // ---------- Esc 也能返回 ----------
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' &&
+                document.activeElement?.tagName !== 'INPUT' &&
+                document.activeElement?.tagName !== 'TEXTAREA') {
+                e.preventDefault();
+                goHome();
+            }
+        });
+
+        // ---------- 窗口变化时确保按钮不越界 ----------
+        window.addEventListener('resize', () => {
+            const rect = backBtn.getBoundingClientRect();
+            const maxX = window.innerWidth - backBtn.offsetWidth;
+            const maxY = window.innerHeight - backBtn.offsetHeight;
+            const newX = Math.max(0, Math.min(maxX, rect.left));
+            const newY = Math.max(0, Math.min(maxY, rect.top));
+            if (newX !== rect.left || newY !== rect.top) applyBackPos(newX, newY);
+        });
+
+        console.log('🏠 返回按钮已就绪：拖动移动，双击复位，位置自动保存。');
+    </script>
+</body>
+</html>
